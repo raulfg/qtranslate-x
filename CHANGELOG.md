@@ -11,6 +11,49 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.1.0
+
+Integra el plugin acompañante **qTranslate Slug** como módulo. Hasta ahora era un plugin
+aparte que dependía de que este se cargase antes; ahora un solo plugin es dueño de todo el
+comportamiento de URLs multiidioma.
+
+### Qué se añade
+
+- `slug/` con el código, los assets y las traducciones del acompañante.
+- `slug/loader.php`, que sustituye a su arranque. Conserva los mismos includes, las mismas
+  constantes, el mismo global `$qtranslate_slug` y las mismas funciones de plantilla
+  (`qts_get_url`, `qts_get_canonical_url`, `qts_get_slug`, `qts_language_menu`), de modo que
+  el código y los datos no cambian.
+- La descripción del plugin pasa a mencionar la definición de slugs por idioma.
+
+### Los datos no se tocan
+
+La meta `_qts_slug_*` y la opción `qts_options` siguen igual. `install()` solo se ejecuta si
+la versión almacenada difiere de la empaquetada, así que al cambiar desde el plugin suelto no
+hace nada y se heredan los datos tal cual.
+
+### Qué descarta el cargador, y por qué
+
+- `register_activation_hook()` y `register_deactivation_hook()`: solo se disparan para un
+  fichero de plugin real. `install()` se ejecuta desde una comprobación de versión.
+- `register_uninstall_hook()` y `qts_uninstall()`: desinstalar es del ciclo de vida del plugin
+  padre, y borrar los slugs al desinstalar este plugin sería una sorpresa destructiva.
+- `qts_add_settings_link()`: apuntaba a la fila del acompañante en la página de plugins, que
+  ya no existe. La página de ajustes se registra sola y sigue en Ajustes -> Slug options.
+
+### Cómo cambiar desde el plugin suelto
+
+El despliegue es inerte. La carga va guardada por `class_exists('QtranslateSlug')`, de modo
+que mientras el plugin suelto siga activo este módulo no se carga y nada cambia. Al
+desactivarlo, el módulo toma el relevo en la siguiente petición; reactivarlo lo revierte.
+Conviene refrescar las reglas de rewrite una vez desde Ajustes -> Enlaces permanentes.
+
+**Aviso para quien conserve el plugin suelto instalado:** no basta con un `return` temprano en
+su fichero principal para evitar el conflicto. PHP enlaza las declaraciones de funciones de
+nivel superior al **compilar** el fichero, antes de ejecutar nada, así que reactivarlo con
+este módulo ya cargado provoca un error fatal por redeclarar `qts_language_menu`. El cuerpo
+del plugin suelto debe moverse a un fichero que solo se incluya tras comprobar la guarda.
+
 ## 4.0.0
 
 Primera versión bajo mantenimiento propio. Funcionalmente equivalente a la 3.4.6.8 más las
