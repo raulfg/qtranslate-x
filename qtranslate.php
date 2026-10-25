@@ -1,19 +1,19 @@
 <?php
 /**
-Plugin Name: qTranslate-X
-Plugin URI: http://wordpress.org/plugins/qtranslate-x/
+Plugin Name: qTranslate-X (fork)
+Plugin URI: https://github.com/raulfg/qtranslate-x
 Description: Adds user-friendly and database-friendly multilingual content support.
-Version: 3.4.6.8
-Author: qTranslate Team
-Author URI: http://qtranslatexteam.wordpress.com/about
+Version: 4.0.0
+Author: Raul Fernandez
+Author URI: https://github.com/raulfg
 Tags: multilingual, multi, language, admin, tinymce, Polyglot, bilingual, widget, switcher, professional, human, translation, service, qTranslate, zTranslate, mqTranslate, qTranslate Plus, WPML
 Text Domain: qtranslate
 Domain Path: /lang/
 License: GPL2
-Author e-mail: qTranslateTeam@gmail.com
 Original Author: Qian Qin (http://www.qianqin.de mail@qianqin.de)
-GitHub Plugin URI: https://github.com/qTranslate-Team/qtranslate-x
-GitHub Branch: master
+Upstream Author: qTranslate Team (https://github.com/qTranslate-Team/qtranslate-x)
+GitHub Plugin URI: https://github.com/raulfg/qtranslate-x
+GitHub Branch: main
 */
 /* Unused keywords (as described in http://codex.wordpress.org/Writing_a_Plugin):
  * Network: Optional. Whether the plugin can only be activated network wide. Example: true
