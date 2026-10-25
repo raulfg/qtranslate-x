@@ -1,24 +1,39 @@
 # qTranslate-X (fork)
 
+> ## Antes de nada: mira qTranslate-XT
+>
+> **Si estás valorando usar un plugin de este tipo, empieza por
+> [qTranslate-XT](https://github.com/qtranslate/qtranslate-xt). No por aquí.**
+>
+> Es el sucesor mantenido por la comunidad del mismo plugin: desarrollo activo, integra como
+> módulos los plugins acompañantes que antes había que instalar aparte, declara compatibilidad
+> con versiones recientes de WordPress y requiere PHP 7.4 o superior.
+>
+> Este repositorio **no es una alternativa a XT**. Es un fork de una versión de 2016 con un
+> único propósito: mantener en pie una instalación heredada. Si tienes la opción de elegir,
+> no elijas esto.
+
 Fork de [qTranslate-X](https://github.com/qTranslate-Team/qtranslate-x) 3.4.6.8, mantenido
 por **Raul Fernandez** por motivos técnicos.
 
 Da soporte multiidioma a contenido dinámico de WordPress guardando todas las traducciones
 en el mismo campo del post, en lugar de duplicar entradas o sitios por idioma.
 
-## No recomendado para proyectos nuevos
+## Por qué no deberías usar este fork
 
-**Si estás empezando un proyecto, no uses este fork.**
+Si has llegado hasta aquí a pesar del aviso de arriba, estas son las razones concretas:
 
-Existe con un objetivo acotado: mantener en funcionamiento una instalación heredada sobre
-versiones modernas de PHP, sin reescribir su capa multiidioma. No es un plugin en desarrollo
-activo, no añade funcionalidad, no sigue la evolución de WordPress y arrastra un problema de
-seguridad sin parchear (ver más abajo).
+- **No está en desarrollo activo.** No se añade funcionalidad ni se sigue la evolución de
+  WordPress. Solo se corrige lo que impide funcionar a la instalación que lo usa.
+- **Arrastra un XSS sin parchear**, heredado de upstream y sin corrección oficial. Está
+  documentado más abajo, con las condiciones en las que resulta explotable.
+- **La base es de 2016.** Nueve años de correcciones de WordPress y de PHP que XT sí ha
+  incorporado aquí no están.
+- **No hay comunidad detrás.** Si aparece un fallo que no afecta a la instalación que lo
+  mantiene, nadie lo va a arreglar.
 
-Para un proyecto nuevo, o para cualquier instalación que pueda migrar, la opción sensata es
-[**qTranslate-XT**](https://github.com/qtranslate/qtranslate-xt): es el sucesor mantenido por
-la comunidad, integra como módulos los plugins acompañantes, declara compatibilidad con
-versiones recientes de WordPress y requiere PHP 7.4 o superior.
+Para un proyecto nuevo, o para cualquier instalación que pueda migrar, la opción es
+[**qTranslate-XT**](https://github.com/qtranslate/qtranslate-xt).
 
 ## Por qué existe este fork
 
