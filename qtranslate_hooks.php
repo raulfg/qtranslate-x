@@ -177,10 +177,13 @@ add_action('link_category_edit_form', 'qtranxf_modifyTermFormFor');
 add_action('category_add_form', 'qtranxf_modifyTermFormFor');
 add_action('post_tag_add_form', 'qtranxf_modifyTermFormFor');
 add_action('link_category_add_form', 'qtranxf_modifyTermFormFor');
-*/
-add_action('widgets_init', 'qtranxf_widget_init');
 
+add_action('category_edit_form', 'qtranxf_modifyTermFormFor');   
+add_action('widgets_init', 'qtranxf_widget_init');*/ 
 
+function qtranxf_modifyTermFormFor() {
+    return;
+}
 // Hooks (execution time critical filters)
 
 /* // since 3.2.9.9.4 gettext* filters moved to frontend.php
