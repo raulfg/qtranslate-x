@@ -2,8 +2,8 @@
 /**
 Plugin Name: qTranslate-X (fork)
 Plugin URI: https://github.com/raulfg/qtranslate-x
-Description: Adds user-friendly and database-friendly multilingual content support.
-Version: 4.0.0
+Description: Adds user-friendly and database-friendly multilingual content support & Define a slug for each language.
+Version: 4.1.0
 Author: Raul Fernandez
 Author URI: https://github.com/raulfg
 Tags: multilingual, multi, language, admin, tinymce, Polyglot, bilingual, widget, switcher, professional, human, translation, service, qTranslate, zTranslate, mqTranslate, qTranslate Plus, WPML
@@ -140,6 +140,22 @@ if(is_admin() ){ // && !(defined('DOING_AJAX') && DOING_AJAX) //todo cleanup
 
 //if(file_exists(QTRANSLATE_DIR.'/slugs'))
 //	require_once(QTRANSLATE_DIR.'/slugs/qtx_slug.php');
+
+/*
+ * Bundled qTranslate Slug companion.
+ *
+ * The class_exists() guard is what makes the switch from the standalone companion plugin
+ * safe in any order: while that plugin is still active it declares QtranslateSlug first, so
+ * this bundle stays out of the way and nothing changes. Without the guard, having both
+ * loaded would be a fatal class redeclaration.
+ *
+ * See slug/loader.php for what the bundled bootstrap keeps and what it drops.
+ *
+ * @since 4.1.0
+ */
+if ( ! class_exists( 'QtranslateSlug' ) && file_exists( QTRANSLATE_DIR . '/slug/loader.php' ) ) {
+	require_once QTRANSLATE_DIR . '/slug/loader.php';
+}
 
 // load qTranslate Services if available // disabled since 3.1
 //if(file_exists(QTRANSLATE_DIR.'/qtranslate_services.php'))

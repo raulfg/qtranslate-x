@@ -49,6 +49,19 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 4.1.0
+
+Integra el plugin acompañante **qTranslate Slug** como módulo (`slug/`). Hasta ahora era un
+plugin aparte que dependía de que este se cargase antes; ahora un solo plugin es dueño de todo
+el comportamiento de URLs multiidioma.
+
+Los datos no cambian: la meta `_qts_slug_*` y la opción `qts_options` se heredan tal cual.
+
+El cambio desde el plugin suelto es inerte y reversible: la carga va guardada por
+`class_exists('QtranslateSlug')`, así que mientras ese plugin siga activo el módulo no se
+carga. Al desactivarlo, el módulo toma el relevo. El detalle está en `CHANGELOG.md`, incluido
+un aviso importante sobre por qué un `return` temprano no basta para guardar el plugin suelto.
+
 ## Novedades de la 4.0.0
 
 Funcionalmente equivalente a 3.4.6.8 más las correcciones siguientes, que llevaban años
@@ -118,12 +131,13 @@ el importador y un esquema de base de datos sin decidir. **No conviene partir de
 
 ## Hoja de ruta
 
-- **Absorber el plugin acompañante `qtranslate-slug` como módulo**, para que un solo plugin
-  sea dueño de todo el comportamiento de URLs multiidioma. Como referencia de diseño conviene
-  mirar cómo lo resolvió qTranslate-XT, que completó esa integración usando metadatos, y no
-  el intento inacabado de upstream con una tabla propia.
+- ~~Absorber el plugin acompañante `qtranslate-slug` como módulo~~ — **hecho en la 4.1.0**.
+  Es un empaquetado, no una reescritura: conserva el almacenamiento en la meta `_qts_slug_*`.
+  Una integración de verdad usaría el enfoque de qTranslate-XT, que la completó con metadatos
+  propios, y no el intento inacabado de upstream con tablas aparte.
 - **Evaluar la migración a qTranslate-XT.** Ya incluye los slugs como módulo integrado y un
-  migrador desde los metadatos `_qts_slug_*` del plugin qTranslate Slug.
+  migrador desde los metadatos `_qts_slug_*` del plugin qTranslate Slug. Sigue siendo la
+  opción sensata a medio plazo; este fork solo mantiene en pie lo que ya existe.
 
 ## Licencia
 
