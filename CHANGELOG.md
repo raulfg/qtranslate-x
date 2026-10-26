@@ -11,6 +11,73 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.2.0
+
+Integra el plugin acompañante **ACF qTranslate** como módulo, y de paso le arregla la puerta
+de versión que lo apagaba en silencio con ACF 6. Mismo movimiento que la 4.1.0 con el slug:
+un solo plugin pasa a ser dueño de toda la capa multiidioma.
+
+### Qué se añade
+
+- `acf/` con `src/`, `assets/` y `compatibility/` del acompañante, copiados **sin modificar**
+  desde la versión 1.7.25 de funkjedi (GPLv2 o posterior) para que se puedan seguir
+  comparando con el original. Toda la adaptación vive en el cargador, no en el código
+  copiado. Este repositorio normaliza los finales de línea a LF vía `.gitattributes`, igual
+  que hizo con `slug/`, así que la comparación con el original es byte a byte salvo en eso.
+- `acf/loader.php`, que sustituye a su arranque. Conserva las constantes
+  `ACF_QTRANSLATE_PLUGIN` y `ACF_QTRANSLATE_PLUGIN_DIR`, de las que dependen tanto los
+  `require_once` internos como las URLs de assets vía `plugins_url()`, y que ahora apuntan a
+  `plugins/qtranslate-x/acf/`.
+- La descripción del plugin pasa a mencionar los campos multiidioma para ACF.
+
+### Admitir ACF 6 y posteriores
+
+El acompañante solo se activaba con ACF 4 o 5 (`acf_major_version() === 4 || === 5`), así que
+con ACF 6 se desactivaba **sin error fatal y sin aviso**. Se añade `acf_branch_version()`, que
+mapea cualquier ACF >= 5 a la rama `acf_5` porque ACF 6 conserva la API de campos de ACF 5, y
+se usa en los tres puntos que decidían por versión. El tercero era el menos evidente: la ruta
+del JS de admin se construía con el número de versión y pedía `/assets/acf_6/qtranslatex.js`,
+que no existe, porque solo hay `assets/acf_4` y `assets/acf_5`.
+
+Las versiones futuras cargan a propósito la rama más reciente en lugar de no cargar nada: una
+rama que quizá necesite ajustes se detecta y se corrige, mientras que el apagado silencioso no
+se nota hasta que alguien ve un dato mal.
+
+**Lo que esto no promete.** Que el puente *cargue* con ACF 6 no garantiza que su interfaz de
+admin funcione allí. Las 348 líneas de JS de `assets/acf_5/` se escribieron contra el marcado
+de ACF 5, y ACF 6 rediseñó el editor de grupos de campos. Queda pendiente probarlo contra una
+instalación real de ACF Pro 6.
+
+### Los datos no se tocan
+
+No hay migración. Los siete tipos de campo (`qtranslate_text`, `qtranslate_textarea`,
+`qtranslate_wysiwyg`, `qtranslate_url`, `qtranslate_image`, `qtranslate_file`,
+`qtranslate_post_object`) conservan sus nombres, así que las definiciones de campo guardadas
+siguen resolviendo igual, y los valores siguen en el formato `[:en]...[:]` de siempre.
+
+### Lo único que se pierde al empaquetarlo
+
+`acf_qtranslate_plugin::__construct()` registra `plugin_action_links_<basename>` para poner un
+atajo de Ajustes en la fila del propio plugin. Empaquetado, ese basename resuelve a
+`qtranslate-x/acf/loader.php`, una fila que no existe, y el filtro nunca se dispara. La página
+de ajustes no se ve afectada: se registra por `admin_menu` y sigue accesible desde Ajustes. El
+filtro muerto se deja a propósito en lugar de parchearlo, para que `src/` siga idéntico a
+upstream.
+
+### Cómo cambiar desde el plugin suelto
+
+El despliegue es inerte: la carga va guardada por `class_exists('acf_qtranslate_plugin')`, así
+que mientras el plugin suelto siga activo este módulo no se carga y nada cambia. Al
+desactivarlo, el módulo toma el relevo en la siguiente petición; reactivarlo lo revierte.
+
+**Aquí la guarda hace falta en los dos lados.** WordPress añade los plugins recién activados al
+final de `active_plugins`, de modo que el suelto puede cargar antes o después de este fichero
+según cuándo se activase por última vez. Si carga después, el módulo ya declaró la clase y su
+`require_once` apunta a otra ruta absoluta, que `require_once` no deduplica: error fatal por
+redeclaración. Por eso el plugin suelto lleva también una retirada temprana. A diferencia del
+caso del slug, aquí basta con un `return`, porque su fichero principal solo ejecuta sentencias
+y no declara nada en el nivel superior.
+
 ## 4.1.0
 
 Integra el plugin acompañante **qTranslate Slug** como módulo. Hasta ahora era un plugin

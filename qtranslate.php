@@ -2,8 +2,8 @@
 /**
 Plugin Name: qTranslate-X (fork)
 Plugin URI: https://github.com/raulfg/qtranslate-x
-Description: Adds user-friendly and database-friendly multilingual content support & Define a slug for each language.
-Version: 4.1.0
+Description: Adds user-friendly and database-friendly multilingual content support & Define a slug for each language & Multilingual fields for ACF.
+Version: 4.2.0
 Author: Raul Fernandez
 Author URI: https://github.com/raulfg
 Tags: multilingual, multi, language, admin, tinymce, Polyglot, bilingual, widget, switcher, professional, human, translation, service, qTranslate, zTranslate, mqTranslate, qTranslate Plus, WPML
@@ -155,6 +155,24 @@ if(is_admin() ){ // && !(defined('DOING_AJAX') && DOING_AJAX) //todo cleanup
  */
 if ( ! class_exists( 'QtranslateSlug' ) && file_exists( QTRANSLATE_DIR . '/slug/loader.php' ) ) {
 	require_once QTRANSLATE_DIR . '/slug/loader.php';
+}
+
+/*
+ * Bundled ACF qTranslate companion.
+ *
+ * Same handover as the slug companion above, and the guard is needed in both directions:
+ * WordPress appends newly activated plugins to the end of active_plugins, so the standalone
+ * acf-qtranslate can load either before or after this file. Whichever runs first declares
+ * acf_qtranslate_plugin and the other stands down. require_once does not deduplicate the
+ * same class reached through two different absolute paths, so without the guard loading
+ * both would be a fatal class redeclaration.
+ *
+ * See acf/loader.php for what the bundled bootstrap keeps and the one behaviour it loses.
+ *
+ * @since 4.2.0
+ */
+if ( ! class_exists( 'acf_qtranslate_plugin' ) && file_exists( QTRANSLATE_DIR . '/acf/loader.php' ) ) {
+	require_once QTRANSLATE_DIR . '/acf/loader.php';
 }
 
 // load qTranslate Services if available // disabled since 3.1

@@ -49,6 +49,20 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 4.2.0
+
+Integra el plugin acompañante **ACF qTranslate** como módulo (`acf/`) y corrige la puerta de
+versión que lo apagaba en silencio con ACF 6: solo se activaba con ACF 4 o 5, de modo que con
+ACF 6 se desactivaba sin error fatal y sin aviso. Ahora cualquier ACF a partir de la 5 usa la
+rama `acf_5`, porque ACF 6 conserva la API de campos de ACF 5.
+
+Los datos no cambian: los siete tipos de campo conservan sus nombres y los valores siguen en
+el formato `[:en]...[:]`, así que no hay migración.
+
+Que el puente cargue con ACF 6 no garantiza que su interfaz de admin funcione allí; ese JS se
+escribió contra el marcado de ACF 5 y queda pendiente probarlo contra una instalación real de
+ACF Pro 6. El detalle está en `CHANGELOG.md`.
+
 ## Novedades de la 4.1.0
 
 Integra el plugin acompañante **qTranslate Slug** como módulo (`slug/`). Hasta ahora era un
@@ -135,6 +149,9 @@ el importador y un esquema de base de datos sin decidir. **No conviene partir de
   Es un empaquetado, no una reescritura: conserva el almacenamiento en la meta `_qts_slug_*`.
   Una integración de verdad usaría el enfoque de qTranslate-XT, que la completó con metadatos
   propios, y no el intento inacabado de upstream con tablas aparte.
+- ~~Absorber el plugin acompañante `acf-qtranslate` como módulo~~ — **hecho en la 4.2.0**.
+  Copia byte a byte de la 1.7.25 con la puerta de versión corregida para admitir ACF 6. Queda
+  pendiente comprobar su interfaz de admin contra una instalación real de ACF Pro 6.
 - **Evaluar la migración a qTranslate-XT.** Ya incluye los slugs como módulo integrado y un
   migrador desde los metadatos `_qts_slug_*` del plugin qTranslate Slug. Sigue siendo la
   opción sensata a medio plazo; este fork solo mantiene en pie lo que ya existe.
