@@ -49,6 +49,22 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 4.3.1
+
+Se van el 70% de los avisos de deprecación de PHP que emitía el plugin, y con ellos un fallo que
+llevaba una década descartando en silencio el atributo `title` de los enlaces del menú.
+
+El módulo `slug/` llamaba a `getSortedLanguages($text)` creyendo que parseaba texto multiidioma,
+como hacía en qTranslate 2. En qTranslate-X esa función recibe un booleano y devuelve la lista de
+idiomas activos, de modo que la comprobación nunca acertaba y el método devolvía `null` siempre.
+Ese `null` llegaba al `strip_tags` que core aplica a `nav_menu_attr_title` — un aviso por item de
+menú y por página — y además borraba el valor del atributo.
+
+Arreglado usando `qtranxf_use_language()`, la API correcta, y desregistrando el filtro, que era
+redundante: el plugin ya traduce `attr_title` por otra vía. qTranslate-XT tampoco lo engancha.
+
+Medido sobre 100 páginas en cuatro idiomas: de 7.889 deprecaciones a 2.301.
+
 ## Novedades de la 4.3.0
 
 Desaparece la sección **Import/Export** de los ajustes, que servía para migrar opciones desde

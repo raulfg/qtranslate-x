@@ -626,7 +626,15 @@ class QtranslateSlug
         // Add specific CSS class to body class based on current lang
         add_filter('body_class', array($this, 'qts_body_class'), 600, 1);
 
+        /* Desregistrado en 4.3.1, siguiendo a qTranslate-XT, que no engancha este
+         * filtro en ningun sitio. Es redundante: core monta attr_title a partir de
+         * post_excerpt en wp_setup_nav_menu_item(), y acto seguido
+         * qtranxf_wp_get_nav_menu_items() lo traduce en qtranslate_frontend.php:168.
+         * Ese es el unico camino por el que se traducen los items del menu, aqui y
+         * en XT; el hook de wp_setup_nav_menu_item esta comentado en el plugin.
+         * Ademas corria con prioridad 0 unas 55 veces por pagina.
         add_filter('nav_menu_attr_title', array($this, 'qts_filter_attr_title'), 0, 3);
+        */
     }
 
     /**
@@ -791,23 +799,37 @@ class QtranslateSlug
         return !empty($slugArray) ? $slugArray[0] : "";
     }
 
-    // TODO: properly test this
     /**
      * Get text in $lang, or in the current lang
+     *
+     * Until 4.3.1 this called <prefix>getSortedLanguages($text), which was
+     * qTranslate 2's text parser. In qTranslate-X that name belongs to a
+     * different function: it takes a boolean $reverse and returns the list of
+     * enabled language codes. So $text was passed as $reverse, the result was a
+     * 0-indexed list, and indexing it by language code never matched. The method
+     * therefore always fell off the end and returned null, which both blanked
+     * every menu item's title attribute and handed null to core's strip_tags
+     * filter on nav_menu_attr_title.
+     *
+     * qtranxf_use_language() is the right API and is what qtranslate_frontend.php
+     * already uses for post_excerpt and attr_title. It returns $text untouched
+     * when the value carries no language blocks.
      *
      * @package Qtranslate Slug
      * @since 1.1.9
      * @param string $text the whole text
      * @param string $lang (optional) get the text in this language, or if empty, the current
-     * @return array the text in the required language
+     * @return string the text in the required language, or $text if it is not multilingual
      */
     public function qts_quickuse($text, $lang = '')
     {
         $lang = '' == $lang ? $this->current_lang : $lang;
-        $parsed_text = call_user_func($this->get_plugin_prefix() . 'getSortedLanguages', $text);
-        if (!empty($parsed_text[$lang])) {
-            return $parsed_text[$lang];
+
+        if (function_exists('qtranxf_use_language')) {
+            return qtranxf_use_language($lang, $text, false, true);
         }
+
+        return $text;
     }
 
 

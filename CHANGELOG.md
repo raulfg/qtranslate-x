@@ -11,6 +11,64 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.3.1
+
+Elimina el 70% de los avisos de deprecación de PHP que emitía el plugin, corrigiendo de paso
+un fallo que llevaba una década borrando en silencio el atributo `title` de los enlaces del
+menú.
+
+### El diagnóstico
+
+`qts_quickuse()`, en el módulo `slug/`, hacía esto:
+
+```php
+$parsed_text = call_user_func($this->get_plugin_prefix() . 'getSortedLanguages', $text);
+if (!empty($parsed_text[$lang])) {
+    return $parsed_text[$lang];
+}
+// sin return
+```
+
+Está escrito contra la API de qTranslate 2, donde `getSortedLanguages($text)` parseaba un texto
+multiidioma y devolvía un array indexado por idioma. En qTranslate-X ese nombre pertenece a otra
+función: recibe un booleano `$reverse` y devuelve la **lista de códigos de idioma activos**. Así
+que `$text` viajaba como `$reverse`, el resultado era una lista 0-indexada, e indexarla por
+código de idioma nunca acertaba. El método caía siempre al final **y devolvía `null`**.
+
+qTranslate-XT lo confirma en su propio código: en `src/compatibility.php` declara
+`qtrans_getSortedLanguages( bool $reverse = false ): array` — con los tipos explícitos, para que
+el contrato no se pueda confundir.
+
+### Las dos consecuencias
+
+`qts_filter_attr_title()` estaba colgado de `nav_menu_attr_title` con **prioridad 0**, es decir
+antes de los `wptexturize` y `strip_tags` que core engancha en la 10. Devolvía `null`, de modo
+que:
+
+- `strip_tags(null)` emitía un aviso de deprecación **por cada item de menú y por cada página**:
+  5.488 de los 7.889 medidos en 100 cargas, el 69% del total.
+- El atributo `title` del enlace se perdía. Lo que un editor escriba en "Atributo de título" de
+  un item del menú se descartaba sin avisar.
+
+### El arreglo
+
+Dos cambios:
+
+- `qts_quickuse()` usa ahora `qtranxf_use_language()`, que es la API correcta y la que
+  `qtranslate_frontend.php` ya emplea para `post_excerpt` y `attr_title`. Devuelve `$text` sin
+  tocar cuando el valor no lleva bloques de idioma, así que nunca más `null`.
+- Se **desregistra** el filtro `nav_menu_attr_title`, siguiendo a qTranslate-XT, que no lo
+  engancha en ningún sitio. Es redundante: core monta `attr_title` desde `post_excerpt` y acto
+  seguido `qtranxf_wp_get_nav_menu_items()` lo traduce en `qtranslate_frontend.php:168`. Ese es
+  el único camino por el que se traducen los items del menú, aquí y en XT.
+
+### Medido
+
+Sobre 100 páginas en cuatro idiomas: deprecaciones **7.889 → 2.301**, avisos de `strip_tags` con
+`null` **5.488 → 0**, cero fatales. Verificado además con un experimento controlado que la salida
+HTML es idéntica con y sin el filtro, descontando los identificadores que el sitio genera por
+petición.
+
 ## 4.3.0
 
 Desactiva la sección **Import/Export** de los ajustes, que migraba opciones desde
