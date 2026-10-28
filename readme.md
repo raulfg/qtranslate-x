@@ -49,6 +49,21 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 4.2.1
+
+Corrige un error fatal que tumbaba **cualquier página del escritorio** a partir de WordPress
+7.0. El filtro `get_terms_args` del plugin escapaba el `&` de los nombres de término dando por
+hecho que recibía una cadena, pero `WP_Term_Query` acepta ahí una cadena **o un array** desde
+WordPress 4.6, y con un array `strpos()` lanza un `TypeError` en PHP 8.
+
+El fallo llevaba años latente y nadie lo veía porque el núcleo lo tapaba: hasta WordPress 6.9,
+la consulta de estilos globales salía antes de tiempo cuando el tema activo no traía
+`theme.json`, de modo que el filtro nunca recibía un array. WordPress 7.0 elimina ese retorno
+temprano y el fallo aparece con cualquier tema clásico.
+
+Solo afecta al escritorio: el archivo que define el filtro no se carga en el front end. Los
+datos no cambian y no hay migración. El detalle está en `CHANGELOG.md`.
+
 ## Novedades de la 4.2.0
 
 Integra el plugin acompañante **ACF qTranslate** como módulo (`acf/`) y corrige la puerta de
