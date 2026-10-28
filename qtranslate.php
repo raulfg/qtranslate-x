@@ -3,7 +3,7 @@
 Plugin Name: qTranslate-X (fork)
 Plugin URI: https://github.com/raulfg/qtranslate-x
 Description: Adds user-friendly and database-friendly multilingual content support & Define a slug for each language & Multilingual fields for ACF.
-Version: 4.2.3
+Version: 4.3.0
 Author: Raul Fernandez
 Author URI: https://github.com/raulfg
 Tags: multilingual, multi, language, admin, tinymce, Polyglot, bilingual, widget, switcher, professional, human, translation, service, qTranslate, zTranslate, mqTranslate, qTranslate Plus, WPML

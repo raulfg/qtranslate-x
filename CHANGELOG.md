@@ -11,6 +11,29 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.3.0
+
+Desactiva la sección **Import/Export** de los ajustes, que migraba opciones desde
+mqTranslate, qTranslate Plus y zTranslate. Se dejan de registrar sus dos hooks en
+`admin/qtx_import_export.php`; el código permanece, comentado y documentado.
+
+El motivo no es la interfaz, es el handler. `qtranxf_migrate_plugins()`, colgado de
+`qtranslate_saveConfig`, recorría `$_POST` buscando claves terminadas en `-migration` y
+componía el nombre de la función a ejecutar a partir del valor recibido. **No comprobaba si el
+plugin de origen estaba instalado**: le bastaba con que la función existiera, y todas están
+definidas en ese mismo archivo. La interfaz sí lo comprobaba (`qtranxf_add_row_migrate()`
+devuelve sin pintar nada si el plugin no está presente), de modo que la sección aparecía vacía
+y la operación parecía imposible — pero un POST con `<plugin>-migration=import` contra la
+página de ajustes, hecho por alguien con `manage_options`, habría sobrescrito las opciones de
+qTranslate igualmente.
+
+De paso esto deja inalcanzable `qtranxf_migrate_options_copy()`, cuyo `continue` dentro de un
+`switch` (línea 62) equivale a `break` y por tanto copia las 21 opciones que el código parece
+querer saltarse. Ese defecto no se corrige aquí: la intención original es ambigua y cambiarlo
+alteraría una ruta de migración que no se puede probar. Queda documentado y sin salida.
+
+Ninguna instalación que use este fork migra desde otro plugin multiidioma.
+
 ## 4.2.3
 
 Completa la 4.2.2, que corrigió **una** de las siete llamadas afectadas. El patrón

@@ -143,7 +143,14 @@ function qtranxf_migrate_plugins(){
 		}
 	}
 }
+/* Desactivado en este fork. El handler no comprueba si el plugin de origen esta
+ * instalado: le basta con que exista la funcion qtranxf_migrate_<accion>_<plugin>,
+ * y todas existen en este archivo. Un POST con <plugin>-migration=import desde la
+ * pagina de ajustes bastaria para sobrescribir las opciones de qTranslate, aunque
+ * mqTranslate o qTranslate Plus no esten instalados y la interfaz no muestre fila
+ * alguna. La instalacion que mantiene este fork no migra desde ningun otro plugin.
 add_action('qtranslate_saveConfig','qtranxf_migrate_plugins',30);
+*/
 
 function qtranxf_add_row_migrate($nm,$plugin,$args=null) {
 	$plugin_file = qtranxf_find_plugin_file($plugin);
@@ -225,4 +232,7 @@ function qtranxf_admin_section_import_export($request_uri)
 	qtranxf_admin_section_end('import');
 	//echo '</div>';
 }
+/* Desactivado en este fork junto con su handler: sin migracion que ejecutar, la
+ * seccion solo ofreceria controles inertes.
 add_action('qtranslate_configuration', 'qtranxf_admin_section_import_export', 9);
+*/

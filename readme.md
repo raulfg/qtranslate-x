@@ -49,6 +49,21 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 4.3.0
+
+Desaparece la sección **Import/Export** de los ajustes, que servía para migrar opciones desde
+mqTranslate, qTranslate Plus y zTranslate.
+
+No se quita por limpieza, se quita por seguridad. Su handler recorría `$_POST` buscando claves
+terminadas en `-migration` y **no comprobaba si el plugin de origen estaba instalado**: con que
+existiese la función correspondiente —y todas existen en el propio archivo— un envío manipulado
+desde la página de ajustes, por alguien con permisos de administración, podía sobrescribir las
+opciones de qTranslate. La interfaz aparecía vacía porque sí hacía esa comprobación, de modo que
+el riesgo no se veía.
+
+Ninguna instalación que use este fork migra desde otro plugin multiidioma. El código queda en el
+repositorio, comentado, con el motivo escrito al lado.
+
 ## Novedades de la 4.2.1
 
 Corrige un error fatal que tumbaba **cualquier página del escritorio** a partir de WordPress
