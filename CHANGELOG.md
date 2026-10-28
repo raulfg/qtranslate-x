@@ -11,6 +11,32 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.2.1
+
+Arregla un error fatal en el escritorio con WordPress 7.0 y posteriores.
+
+`qtranxf_get_terms_args()`, el filtro de `get_terms_args` que escapa el `&` de los nombres
+de término, daba por hecho que `$args['name']` siempre era una cadena. `WP_Term_Query`
+acepta ahí una cadena **o un array** desde WordPress 4.6, y cuando llega un array
+`strpos()` lanza un `TypeError` en PHP 8. El filtro ahora recorre ambas formas y devuelve
+la que recibió.
+
+Hasta WordPress 6.9 el fallo no se notaba. `WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles()`
+salía antes de tiempo cuando el tema activo no traía `theme.json`:
+
+```php
+if ( $theme->get_stylesheet() === get_stylesheet() && ! wp_theme_has_theme_json() ) {
+    return array();
+}
+```
+
+WordPress 7.0 elimina ese retorno temprano, así que la consulta de `wp_global_styles`
+—que resuelve su `tax_query` por nombre de término y por tanto pasa un array— se ejecuta
+también con temas clásicos. A partir de ahí, cualquier página del escritorio moría al
+imprimir las fuentes (`wp_print_font_faces()` → `wp_get_global_settings()`).
+
+Sólo afecta al escritorio: `admin/qtx_admin.php` no se carga en el front end.
+
 ## 4.2.0
 
 Integra el plugin acompañante **ACF qTranslate** como módulo, y de paso le arregla la puerta

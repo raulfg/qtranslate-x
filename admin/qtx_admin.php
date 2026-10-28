@@ -772,28 +772,47 @@ function qtranxf_admin_notices_config() {
 	}
 }
 
+/** Encode a raw '&' as '&amp;' the way a term name is stored, leaving existing entities alone.
+ * @since 4.2.1
+ */
+function qtranxf_encode_term_name_amp($name) {
+	$p = 0;
+	while(($p = strpos($name,'&',$p)) !== false){
+		if(substr($name,$p,5) == '&amp;'){
+			$p += 5;
+		}else{
+			++$p;
+			$name = substr($name,0,$p).'amp;'.substr($name,$p);
+			$p += 4;
+		}
+	}
+	return $name;
+}
+
 /** A workaround for seems to be an overlook in WordPress core.
  * Dealing with '&' in term name.
  * A term name containing '&' is stored in database with '&amp;' instead of '&',
  * but search in get_terms is done on raw '&' coming from $_POST variable.
+ *
+ * WP_Term_Query accepts 'name' as a string or as an array of names, so both
+ * shapes have to be handled here. WordPress itself passes an array when it
+ * resolves a tax_query by term name, as WP_Tax_Query::transform_query does.
  */
 function qtranxf_get_terms_args($args, $taxonomies=null) {
 	if(!empty($args['name'])){
-		$p = 0;
-		while(($p = strpos($args['name'],'&',$p)) !== false){
-			if(substr($args['name'],$p,5) == '&amp;'){
-				$p += 5;
-			}else{
-				++$p;
-				$args['name'] = substr($args['name'],0,$p).'amp;'.substr($args['name'],$p);
-				$p += 4;
-			}
-		}
 		global $q_config;
 		$lang = $q_config['language'];
-		if($lang != $q_config['default_language']){
-			$args['name'] = qtranxf_find_term($lang, $args['name']);
+		$translate = $lang != $q_config['default_language'];
+		$names = is_array($args['name']) ? $args['name'] : array($args['name']);
+		foreach($names as $k => $name){
+			if(!is_string($name)) continue;
+			$name = qtranxf_encode_term_name_amp($name);
+			if($translate){
+				$name = qtranxf_find_term($lang, $name);
+			}
+			$names[$k] = $name;
 		}
+		$args['name'] = is_array($args['name']) ? $names : reset($names);
 	}
 	if(!empty($args['name__like'])){
 		global $q_config;
