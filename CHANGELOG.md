@@ -11,6 +11,18 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.2.2
+
+Mantenimiento: `qtranslate_core.php` pasaba `null` como tercer argumento de `preg_split()`
+al leer la opción `qtranslate_ignore_file_types`. Ese parámetro es `$limit` y su valor por
+defecto es `-1`; pasar `null` a un parámetro no nulable de una función interna está deprecado
+desde PHP 8.1, y el RFC que introdujo el aviso declara la intención de convertirlo en
+`TypeError` en PHP 9.
+
+**El comportamiento no cambia.** Para `preg_split()`, `null`, `0` y `-1` significan todos "sin
+límite": comprobado en PHP 8.4.27, los tres devuelven el mismo array. Sólo desaparece el aviso,
+uno por petición del front end cuando esa opción no está vacía.
+
 ## 4.2.1
 
 Arregla un error fatal en el escritorio con WordPress 7.0 y posteriores.

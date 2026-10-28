@@ -682,7 +682,7 @@ function qtranxf_loadConfig() {
 	$ignore_file_types = get_option('qtranslate_ignore_file_types');
 	$val=explode(',',QTX_IGNORE_FILE_TYPES);
 	if(!empty($ignore_file_types)){
-		$vals=preg_split('/[\s,]+/', strtolower($ignore_file_types), null, PREG_SPLIT_NO_EMPTY);
+		$vals=preg_split('/[\s,]+/', strtolower($ignore_file_types), -1, PREG_SPLIT_NO_EMPTY);
 		foreach($vals as $v){
 			if(empty($v)) continue;
 			if(in_array($v,$val)) continue;
