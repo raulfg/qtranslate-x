@@ -11,6 +11,24 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.2.3
+
+Completa la 4.2.2, que corrigió **una** de las siete llamadas afectadas. El patrón
+`preg_split(..., null, PREG_SPLIT_*)` estaba repetido por todo el plugin; ahora las siete
+pasan `-1`:
+
+- `qtranslate_core.php:552` — valor por defecto de una opción que aún no está guardada.
+- `qtranslate_core.php:1352` — `qtranxf_join_byseparator()`, que recompone un valor
+  multiidioma a partir de sus partes. Esta es la más relevante: sólo se ejecuta al **escribir**
+  contenido, no al leerlo, así que el día que PHP 9 la convierta en `TypeError` el fallo
+  aparecería guardando, no mostrando.
+- `admin/qtx_admin_options_update.php:329, 499, 503, 581, 685` — guardado de opciones y
+  lectura de los ficheros de configuración JSON.
+
+Igual que en la 4.2.2, **el comportamiento no cambia**: comprobado en PHP 8.4.27 que `null` y
+`-1` devuelven el mismo array tanto con `PREG_SPLIT_NO_EMPTY` como con
+`PREG_SPLIT_DELIM_CAPTURE`, y la página servida es byte a byte idéntica.
+
 ## 4.2.2
 
 Mantenimiento: `qtranslate_core.php` pasaba `null` como tercer argumento de `preg_split()`
