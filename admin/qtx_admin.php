@@ -10,9 +10,27 @@ function qtranxf_collect_translations_deep( $qfields, $sep ) {
 	// reset() on an empty array returns false, which is neither a string nor
 	// iterable: foreach would warn and the field would be dropped silently.
 	if(empty($qfields)) return '';
-	$content = reset($qfields);
+	// reset() picks the first language arbitrarily, and that one being null (or any
+	// non-walkable value) says nothing about the others. Take the shape from the
+	// first language that actually has one, string or array.
+	$content = null;
+	foreach($qfields as $v){
+		if(is_string($v) || is_array($v)){ $content = $v; break; }
+	}
 	//qtranxf_dbg_log('qtranxf_collect_translations_deep: $content: ',$content);
-	if(is_string($content)) return qtranxf_join_texts($qfields,$sep);
+	// No language offers anything walkable: there is nothing to collect. Return null,
+	// not '', so the caller can leave the request alone instead of emptying the field.
+	if($content === null) return null;
+	if(is_string($content)){
+		// A language whose value is not a string cannot contribute text, and must not
+		// contribute the word "Array" either: qtranxf_join_b() concatenates it as-is.
+		// '' is omitted by join_b and is never a copy of another language.
+		$texts = array();
+		foreach($qfields as $lang => $v){
+			$texts[$lang] = is_string($v) ? $v : '';
+		}
+		return qtranxf_join_texts($texts,$sep);
+	}
 	$result = array();
 	foreach($content as $f => $r){
 		$texts = array();
@@ -33,7 +51,9 @@ function qtranxf_collect_translations( &$qfields, &$request, $edit_lang ) {
 		$sep = $qfields['qtranslate-separator'];
 		unset($qfields['qtranslate-separator']);
 		$qfields[$edit_lang] = $request;
-		$request = qtranxf_collect_translations_deep($qfields,$sep);
+		$collected = qtranxf_collect_translations_deep($qfields,$sep);
+		// null means no language had anything walkable: keep $request as posted.
+		if(!is_null($collected)) $request = $collected;
 	}else{
 		foreach($qfields as $nm => &$vals){
 			// ACF's hidden template row; it must never be persisted.
