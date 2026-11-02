@@ -11,6 +11,148 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 4.4.0
+
+Los campos `wysiwyg` nativos de ACF pasan a ser multiidioma. Hasta ahora el módulo `acf/` solo
+cubría los tipos `qtranslate_*`; un `wysiwyg` normal guardaba en cada pantalla el contenido del
+idioma activo y descartaba el resto. Compatible con Secure Custom Fields 6.9.7 además de ACF 5.
+
+### El diagnóstico
+
+Dos mecanismos distintos, ambos medidos en un laboratorio (una página con un campo de cada
+forma: de primer nivel, en `repeater`, en `group`) antes de tocar nada.
+
+**A. El relevo entre el núcleo y el módulo perdía el valor crudo al desenganchar.** qTranslate
+engancha cada `.wp-editor-area` al cargar el documento y sustituye el valor `[:en]A[:es]B[:]` por
+el texto del idioma activo, repartiendo el resto en inputs ocultos. Al desenganchar, el núcleo
+dejaba en el campo solo ese texto del idioma activo: el valor multiidioma original no se
+reconstruía. Cualquier camino que desenganchara y volviera a enganchar (el barrido del módulo,
+una fila nueva) convertía `[:en]A[:es]B[:]` en `A` y lo guardaba.
+
+**B. El renombrado destructivo de ACF dejaba huérfano el registro de enganches.** ACF crea el
+editor con un id temporal y lo sustituye con `acf.rename({destructive:true})` cuando inicializa
+TinyMCE. El barrido anterior corría en `window.load`, antes de esa inicialización, de modo que
+enganchaba el textarea temporal y el enganche quedaba apuntando a un elemento que ACF ya había
+destruido. El editor definitivo no estaba enganchado: los botones de idioma no hacían nada sobre
+él y el POST llevaba un único valor.
+
+### Qué se cambió
+
+- **`removeContentHookH` (`admin/js/common.js`)** reconstruye el valor multiidioma al desenganchar,
+  salvo que el usuario haya editado el campo desde que se enganchó (entonces manda lo escrito).
+  Es la corrección de A. Las pruebas cubren el caso normal, el campo sin marcadores y el editado.
+- **Enganche del `wysiwyg` (`acf/assets/acf_5/qtranslatex.js`)** a través del filtro
+  `wysiwyg_tinymce_settings`, que ve el editor definitivo, y no desde `window.load`. Es la
+  corrección de B. El desenganche genérico anterior se conserva porque limpia los enganches del
+  núcleo sobre los textareas temporales que ACF va a destruir.
+- **Endurecimiento de PHP en `qtranxf_collect_translations*` (`admin/qtx_admin.php`).** Con un
+  campo anidado cuyo valor llegaba como cadena en lugar de array, el `[]` sobre una cadena era un
+  `TypeError` en PHP 8. Además, indexar un campo ausente lo creaba con autovivificación, y la
+  plantilla `acfcloneindex` de los `repeater` salía como una fila fantasma. Ahora se comprueba la
+  forma de la petición, se omite `acfcloneindex` y un valor con contenido gana a uno vacío.
+- **Guarda de pérdida (`acf/src/acf_5/acf.php`, filtro `acf/update_value`).** Si llega un valor
+  sin marcadores y el guardado tenía marcadores, escribe una línea en `debug.log` con el post, el
+  campo y las longitudes (nunca el contenido). **Avisa; no bloquea**: bloquear un guardado por una
+  heurística convierte un falso positivo en pérdida de lo que el editor acaba de escribir, y un
+  borrado legítimo es indistinguible desde el servidor. Desde la corrección de A la guarda no
+  vuelve a dispararse: 15 líneas antes y 15 después de todas las pruebas.
+- **Filas de `repeater`.** El desmontaje al borrar una fila estaba escrito pero nunca se asignaba
+  (`repeaterRemove`), así que el registro goteaba desde siempre; ahora se instala. Al reordenar
+  con arrastrar y soltar, el editor de la fila movida quedaba sin enlazar a su TinyMCE nuevo; el
+  `init_instance_callback` lo reengancha. Los campos dentro de `group` pasaban ya en la línea base
+  y **no requirieron cambio de código**.
+- **Idiomas retirados (`de`, `ru`, `zh`): se conservan, no se descartan.** La especificación
+  esperaba que un guardado los perdiera dejando la cadena bien formada. Medido: `qtranxj_split`
+  devuelve los idiomas retirados que contienen datos y el núcleo ya documenta que se conservan y
+  se vuelven a guardar hasta que alguien los borre a mano. Descartarlos exigiría código explícito
+  y destruiría datos que nadie ha pedido borrar (1.602 valores en producción). La cadena sigue
+  bien formada y cerrada con `[:]`. Es mejor de lo que prometía la especificación.
+- **Divergencia deliberada `'0'` frente a `empty()`.** La unión de idiomas del lado JS trata el
+  literal `'0'` como contenido; el `empty()` de PHP no. Se conserva porque colapsar `'0'` a vacío
+  borraría un valor legítimo, y queda comentado en el código. Se añadió la guarda para campos de
+  slug y de término, que comparten el camino de desenganchado pero no tienen ningún llamante real
+  hoy.
+- **`get_visible_acf_fields()` retirado.** Llevaba sin llamante desde que upstream eliminó el
+  único que tenía. qTranslate-XT llegó a la misma conclusión. Se retira también del interfaz
+  `acf_qtranslate_acf_interface` (si no, fatal por método abstracto sin implementar); el interfaz
+  se conserva, ahora vacío, porque los constructores lo exigen en su tipado. La copia de
+  `acf_4/acf.php`, también sin llamante, no se toca.
+- **`jQuery(window).load` reemplazado.** `.load()` como atajo de evento se eliminó en jQuery 3 y
+  solo funcionaba por el parche `jquery-migrate`; si ese se retira, el módulo dejaba de cargar.
+  Ahora el módulo se engancha a la acción `load` de ACF (o se ejecuta de inmediato si ya
+  se disparó), que además llega después de que ACF inicialice los editores.
+
+### Artefacto minificado
+
+`admin/js/common.min.js` se **regenera, nunca se edita a mano**. La orden exacta:
+
+```
+npx --yes terser@5.31.6 common.js -c -m -o common.min.js
+```
+
+Verificación funcional tras regenerar: `node --check common.min.js` y la comprobación de que las
+seis funciones públicas (`addContentHook`, `addContentHookC`, `addContentHooks`,
+`addContentHookById`, `removeContentHook`, y el constructor `qTranslateX`) siguen presentes en el
+mismo número de asignaciones `this.X=` que antes (30 en ambos). Antes de esta versión no había
+registro de cómo se generaba.
+
+### Caché de assets
+
+Los assets del fork se servían sin parámetro de versión útil: `qtranslatex.js`, el `common.js`
+del módulo, `main.js` y `common.css` no llevaban ninguno, y el resto usaba `QTX_VERSION`. Sin
+invalidación, cada despliegue de este arreglo servía JS viejo a los navegadores que ya habían
+visitado el admin, y el síntoma era idéntico al defecto corregido.
+
+Ahora llevan `?ver=` con la versión de la cabecera del plugin, que se lee una sola vez con
+`qtranxf_fork_version()` (`get_file_data` sobre `qtranslate.php`). Hay una razón para no reutilizar
+`QTX_VERSION`, que se **deja en `'3.4.6.8'`**: hay código que la compara con versiones de upstream.
+Esa constante era además el único cache-buster de `options.min.js` y no se había movido en ninguna
+release 4.x, así que los navegadores venían sirviendo ese fichero desde caché.
+
+Hallazgo medido: el tema activo (`crepesandthemes/includes/installation.php`) elimina `?ver=` de
+**todos** los scripts y estilos con un filtro de prioridad 15, por seguridad. Con eso el argumento
+de versión era un no-op y el cache-busting no habría tenido efecto alguno. Por eso
+`qtranxf_restore_asset_version()` (prioridad 20, solo en el admin) vuelve a poner la versión del
+fork únicamente en las URLs de este plugin. El `common.min.js` del núcleo se vuelca en línea en el
+pie de página, salvo con `SCRIPT_DEBUG`, así que no depende de la caché del navegador.
+
+### Duplicado `plugins/acf-qtranslate/` retirado
+
+El plugin autónomo `acf-qtranslate` y el módulo `qtranslate-x/acf/` definen ambos la clase
+`acf_qtranslate_plugin`. Eran idénticos byte a byte hasta este arreglo, que solo toca la copia
+vendida, así que han divergido. Medido: el autónomo está inactivo y el vendido activo. Ambos
+cargadores se protegen con `class_exists`, de modo que no hay fatal, pero el riesgo es silencioso:
+si se reactivara el autónomo y cargara primero, ganaría la copia antigua, **sin el arreglo**, y el
+módulo se apartaría sin avisar. Se retiran sus 29 ficheros del repositorio.
+
+### Huecos conocidos
+
+- **"Text Only" y "Delay initialization".** Un `wysiwyg` con `tabs => 'text'` o `delay => 1` no
+  dispara el filtro `wysiwyg_tinymce_settings`, así que no se engancha. No hay ninguno hoy: los
+  121 campos están en `tabs=all, delay=0`. La guarda de pérdida lo registraría en `debug.log` si
+  apareciera uno.
+- **Alcance de la auditoría.** Solo claves de meta sin guion bajo, solo marcadores con corchetes
+  (`[:xx]`; los `{:xx}` de 100 filas de Yoast y los `<!--:xx-->` no se compararon), con clave
+  `post_id|meta_key`. No se compararon termmeta, usermeta ni commentmeta.
+- **`flexible_content` y `clone`** no se probaron (no hay ninguno en producción), ni `repeater`
+  anidado.
+- **`max_input_vars`.** Medido en la pantalla más pesada (6.606 variables de 30.000, un 22 %) y
+  con incremento 0 respecto a antes del arreglo: antes cada editor ya llevaba cinco inputs ocultos
+  del enganche del núcleo, ahora los lleva una sola vez. Un truncamiento exigiría miles de filas
+  más; no hay límite que documentar.
+
+### Verificación
+
+- Laboratorio: 11 campos (texto, textarea, `wysiwyg` de primer nivel, en `repeater`, en `group`,
+  solo en inglés, y los tipos `qtranslate_*`) con SCF 6.9.7 y con ACF Pro 5.8.14: tras guardar sin
+  tocar nada, todos intactos salvo dos reescrituras benignas de orden de idiomas con los mismos
+  bytes (`lab_qtx_text`, `lab_qtx_wys`). Los campos solo-inglés no se duplican a los cuatro idiomas.
+- Auditoría de 31.863 filas de meta con marcadores contra el volcado previo: 0 diferencias sin
+  explicar, 0 filas ausentes, 0 idiomas perdidos.
+- La guarda de pérdida, en silencio desde la corrección de A: 15 líneas antes y después.
+- Tras el cambio de caché: recarga forzada del admin y guardado de la página de laboratorio con
+  las nuevas URLs `?ver=4.4.0` presentes y el mismo resultado de 9 intactos y 2 benignos.
+
 ## 4.3.1
 
 Elimina el 70% de los avisos de deprecación de PHP que emitía el plugin, corrigiendo de paso

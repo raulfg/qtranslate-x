@@ -49,6 +49,22 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 4.4.0
+
+Los campos `wysiwyg` nativos de ACF ya son multiidioma. Hasta ahora el `readme` solo prometía los
+tipos `qtranslate_*`; un `wysiwyg` normal guardaba en cada pantalla el contenido del idioma activo
+y descartaba el resto. Además el plugin es compatible con **Secure Custom Fields 6.9.7** y con
+ACF 5.
+
+Dos defectos independientes lo causaban: el relevo entre el núcleo y el módulo perdía el valor
+multiidioma al desenganchar, y el renombrado destructivo de ACF dejaba el enganche apuntando a un
+editor ya destruido. Ambos están corregidos. Los idiomas retirados (`de`, `ru`, `zh`) se
+**conservan** al guardar. El plugin sigue sin ser recomendable para proyectos nuevos. El detalle
+completo, incluidos los huecos conocidos, está en `CHANGELOG.md`.
+
+Los assets del fork llevan ahora `?ver=` con la versión del plugin para que los despliegues no
+sirvan JS viejo, y se retira el plugin autónomo `acf-qtranslate`, que duplicaba la clase del módulo.
+
 ## Novedades de la 4.3.1
 
 Se van el 70% de los avisos de deprecación de PHP que emitía el plugin, y con ellos un fallo que
