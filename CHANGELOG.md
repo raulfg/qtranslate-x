@@ -38,12 +38,20 @@ destruido. El editor definitivo no estaba enganchado: los botones de idioma no h
 
 ### Qué se cambió
 
-- **`removeContentHookH` (`admin/js/common.js`)** reconstruye el valor multiidioma al desenganchar,
-  salvo que el usuario haya editado el campo desde que se enganchó (entonces manda lo escrito).
-  Es la corrección de A. Las pruebas cubren el caso normal, el campo sin marcadores y el editado.
+- **`removeContentHookH` (`admin/js/common.js`)** reconstruye el valor multiidioma al desenganchar:
+  primero sincroniza el slot del idioma activo desde el campo (y desde TinyMCE con `mce.save`
+  cuando está visible) y después reensambla el valor con **todos** los slots de idioma, igual que
+  hace `qtranxf_join_b` en PHP. No se pierde ni una edición ni un idioma. Los slots no vacíos
+  idénticos colapsan, de modo que un valor sin marcar sigue sin marcar, y los vacíos votan en esa
+  comparación (`[:en]A[:]` conserva sus marcadores). Es la corrección de A. Una primera versión
+  restauraba el valor crudo capturado al enganchar; se sustituyó porque la revisión midió tres
+  secuencias que perdían datos con ella (aplanado al cambiar de pestaña, edición de un idioma no
+  activo y aplanado al teclear).
 - **Enganche del `wysiwyg` (`acf/assets/acf_5/qtranslatex.js`)** a través del filtro
   `wysiwyg_tinymce_settings`, que ve el editor definitivo, y no desde `window.load`. Es la
-  corrección de B. El desenganche genérico anterior se conserva porque limpia los enganches del
+  corrección de B. El barrido del módulo corre en la acción `load` de ACF con prioridad 1,
+  deliberadamente **antes** del renombrado destructivo; el nuevo enganche del `wysiwyg` ocurre en
+  `wysiwyg_tinymce_settings`, **después** de él. El desenganche genérico anterior se conserva porque limpia los enganches del
   núcleo sobre los textareas temporales que ACF va a destruir.
 - **Endurecimiento de PHP en `qtranxf_collect_translations*` (`admin/qtx_admin.php`).** Con un
   campo anidado cuyo valor llegaba como cadena en lugar de array, el `[]` sobre una cadena era un
@@ -79,8 +87,8 @@ destruido. El editor definitivo no estaba enganchado: los botones de idioma no h
   `acf_4/acf.php`, también sin llamante, no se toca.
 - **`jQuery(window).load` reemplazado.** `.load()` como atajo de evento se eliminó en jQuery 3 y
   solo funcionaba por el parche `jquery-migrate`; si ese se retira, el módulo dejaba de cargar.
-  Ahora el módulo se engancha a la acción `load` de ACF (o se ejecuta de inmediato si ya
-  se disparó), que además llega después de que ACF inicialice los editores.
+  Ahora el módulo se engancha a la acción `load` de ACF con prioridad 1 (o se ejecuta de
+  inmediato si ya se disparó), antes del renombrado destructivo de los editores.
 
 ### Artefacto minificado
 
@@ -109,7 +117,7 @@ Ahora llevan `?ver=` con la versión de la cabecera del plugin, que se lee una s
 Esa constante era además el único cache-buster de `options.min.js` y no se había movido en ninguna
 release 4.x, así que los navegadores venían sirviendo ese fichero desde caché.
 
-Hallazgo medido: el tema activo (`crepesandthemes/includes/installation.php`) elimina `?ver=` de
+Hallazgo medido: el tema activo del sitio elimina `?ver=` de
 **todos** los scripts y estilos con un filtro de prioridad 15, por seguridad. Con eso el argumento
 de versión era un no-op y el cache-busting no habría tenido efecto alguno. Por eso
 `qtranxf_restore_asset_version()` (prioridad 20, solo en el admin) vuelve a poner la versión del
