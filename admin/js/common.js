@@ -308,7 +308,7 @@ var qTranslateX=function(pg) {
 			do {
 				++idx;
 				inpField.id = field_name + idx;
-			} while (contentHooks[field_name]);
+			} while (contentHooks[inpField.id]);
 			//jQuery(inpField).uniqueId();//does not work
 			//jQuery(inpField).each(function (i,e) { e.uniqueId(); });//does not work
 		}
@@ -321,6 +321,10 @@ var qTranslateX=function(pg) {
 		h.lang = qTranslateConfig.activeLanguage;
 		var contents = qtranxj_split(inpField.value);//keep neutral text from older times, just in case.
 		                        //inpField.tagName
+		// Mechanism A (spec §8): keep the field's value as found (h.raw) and what is written in its place
+		// (h.written), so removeContentHookH can undo the overwrite below instead of leaving only the active language.
+		h.raw = inpField.value;
+		h.written = contents[h.lang];
 		inpField.value = contents[h.lang];
 		var qtx_prefix;
 		if(encode){
@@ -458,6 +462,12 @@ var qTranslateX=function(pg) {
 
 	var removeContentHookH=function(h) {
 		if(!h) return false;
+		// Mechanism A (spec §8): unhooking must be the inverse of hooking, otherwise a later re-hook splits an
+		// unmarked text and copies it to every language. Restore only if nobody has typed since the hook
+		// (value still equals what was written): a stale raw must never overwrite a user edit.
+		if(h.raw !== undefined && h.contentField.value === h.written){
+			h.contentField.value = h.raw;
+		}
 		if(h.sepfield) jQuery(h.sepfield).remove();
 		for(var lang in h.fields){
 			jQuery(h.fields[lang]).remove();
