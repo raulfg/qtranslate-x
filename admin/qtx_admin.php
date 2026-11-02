@@ -12,10 +12,20 @@ function qtranxf_collect_translations_deep( $qfields, $sep ) {
 	if(empty($qfields)) return '';
 	// reset() picks the first language arbitrarily, and that one being null (or any
 	// non-walkable value) says nothing about the others. Take the shape from the
-	// first language that actually has one, string or array.
+	// first language that actually has one, and prefer one that is populated (a non-empty
+	// string or a non-empty array): a leading '' must not shadow a populated structure and
+	// collapse the whole field to empty. A populated string still outranks an array, or
+	// its text would be discarded; only the shape is chosen here, the branches below skip
+	// whatever cannot contribute.
 	$content = null;
 	foreach($qfields as $v){
-		if(is_string($v) || is_array($v)){ $content = $v; break; }
+		if((is_string($v) && $v !== '') || (is_array($v) && !empty($v))){ $content = $v; break; }
+	}
+	if($content === null){
+		// Nothing populated: fall back to the first string or array, as before.
+		foreach($qfields as $v){
+			if(is_string($v) || is_array($v)){ $content = $v; break; }
+		}
 	}
 	//qtranxf_dbg_log('qtranxf_collect_translations_deep: $content: ',$content);
 	// No language offers anything walkable: there is nothing to collect. Return null,
