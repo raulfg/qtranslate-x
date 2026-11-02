@@ -461,24 +461,29 @@ var qTranslateX=function(pg) {
 		// Mechanism A (spec §8): unhooking reassembles the current multilingual state - the synced active slot
 		// plus the other language slots - so no edit and no language is lost, and an unmarked value stays unmarked.
 		// Without it the field keeps only the active language and a later re-hook copies that text to every language.
-		if(h.mce && !h.mce.hidden){
-			h.mce.save({format: 'html'});
+		// Slug and term hooks are skipped: their POST is per-language via qtranslate-original-value, so a marked string
+		// would be wrong there. Guard for a path no live caller exercises; their unhook keeps the active text as before.
+		if(h.encode !== 'slug' && h.encode !== 'term'){
+			if(h.mce && !h.mce.hidden){
+				h.mce.save({format: 'html'});
+			}
+			var active = h.fields[h.lang];
+			if(active) active.value = h.contentField.value;//same sync as onTabSwitch for the slot being left
+			// Mirrors qtranxf_join_b / qtranxf_allthesame: empty slots are not emitted, but they do count when testing
+			// whether all texts are identical, so [:en]A[:] keeps its markers. One deliberate divergence: PHP empty()
+			// drops a literal '0', this code keeps it (=== ''), the better semantic and the same standard as the task-2 PHP hardening.
+			var joined = '', first, same = true;
+			for(var lang in h.fields){
+				var text = h.fields[lang].value;
+				if(first === undefined && text !== '') first = text;
+				if(text !== first) same = false;
+				if(text !== '') joined += '[:' + lang + ']' + text;
+			}
+			if(first === undefined) joined = '';
+			else if(same) joined = first;
+			else joined += '[:]';
+			h.contentField.value = joined;
 		}
-		var active = h.fields[h.lang];
-		if(active) active.value = h.contentField.value;//same sync as onTabSwitch for the slot being left
-		// Mirrors qtranxf_join_b / qtranxf_allthesame: empty slots are not emitted, but they do count when testing
-		// whether all texts are identical, so [:en]A[:] keeps its markers. (Unlike PHP empty(), a literal '0' is kept.)
-		var joined = '', first, same = true;
-		for(var lang in h.fields){
-			var text = h.fields[lang].value;
-			if(first === undefined && text !== '') first = text;
-			if(text !== first) same = false;
-			if(text !== '') joined += '[:' + lang + ']' + text;
-		}
-		if(first === undefined) joined = '';
-		else if(same) joined = first;
-		else joined += '[:]';
-		h.contentField.value = joined;
 		if(h.sepfield) jQuery(h.sepfield).remove();
 		for(var lang in h.fields){
 			jQuery(h.fields[lang]).remove();
