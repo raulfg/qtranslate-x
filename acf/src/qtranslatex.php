@@ -65,7 +65,7 @@ class acf_qtranslate_qtranslatex {
 	 */
 	public function admin_enqueue_scripts() {
 		$version = $this->plugin->acf_branch_version();
-		wp_enqueue_script('acf_qtranslatex', plugins_url("/assets/acf_{$version}/qtranslatex.js",  ACF_QTRANSLATE_PLUGIN), array('acf_qtranslate_common'));
+		wp_enqueue_script('acf_qtranslatex', plugins_url("/assets/acf_{$version}/qtranslatex.js",  ACF_QTRANSLATE_PLUGIN), array('acf_qtranslate_common'), qtranxf_fork_version());
 	}
 
 	/**

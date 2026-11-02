@@ -77,6 +77,43 @@ function qtranxf_plugin_basename(){
 /**
  * @since 3.3.2
  */
+/**
+ * Version of this fork, read once from the plugin header.
+ *
+ * Used as the cache-busting parameter of the assets this fork ships. QTX_VERSION cannot
+ * serve that purpose: it stays at the upstream value 3.4.6.8 because code compares it
+ * against upstream releases, so a URL versioned with it never changes between deploys.
+ * Reading the header keeps a single place to bump on each release.
+ *
+ * @since 4.4.0
+ */
+function qtranxf_fork_version(){
+	static $s;
+	if(!$s){
+		$data = get_file_data(QTRANSLATE_FILE, array('Version' => 'Version'), 'plugin');
+		$s = $data['Version'] ? $data['Version'] : QTX_VERSION;
+	}
+	return $s;
+}
+
+/**
+ * Put the fork version back on this plugin's own admin assets.
+ *
+ * A theme or another plugin may strip `?ver=` from every script and stylesheet URL to hide
+ * versions (the active theme does, at priority 15), which silently turns the `ver` argument
+ * passed at enqueue time into a no-op and leaves browsers serving stale JS after a deploy.
+ * This runs after such filters and restores the version, for URLs inside this plugin only.
+ *
+ * @since 4.4.0
+ */
+function qtranxf_restore_asset_version($src){
+	if(!is_admin() || strpos($src, 'ver=') !== false) return $src;
+	if(strpos($src, plugins_url('', QTRANSLATE_FILE) . '/') !== 0) return $src;
+	return add_query_arg('ver', qtranxf_fork_version(), $src);
+}
+add_filter('script_loader_src', 'qtranxf_restore_asset_version', 20);
+add_filter('style_loader_src', 'qtranxf_restore_asset_version', 20);
+
 function qtranxf_plugin_dirname(){
 	static $s;
 	if(!$s){

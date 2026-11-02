@@ -116,8 +116,8 @@ class acf_qtranslate_plugin {
 	 * Load javascript and stylesheets on admin pages.
 	 */
 	public function admin_enqueue_scripts() {
-		wp_enqueue_style('acf_qtranslate_common',  plugins_url('/assets/common.css', ACF_QTRANSLATE_PLUGIN), array('acf-input'));
-		wp_enqueue_script('acf_qtranslate_common', plugins_url('/assets/common.js',  ACF_QTRANSLATE_PLUGIN), array('acf-input','underscore'));
+		wp_enqueue_style('acf_qtranslate_common',  plugins_url('/assets/common.css', ACF_QTRANSLATE_PLUGIN), array('acf-input'), qtranxf_fork_version());
+		wp_enqueue_script('acf_qtranslate_common', plugins_url('/assets/common.js',  ACF_QTRANSLATE_PLUGIN), array('acf-input','underscore'), qtranxf_fork_version());
 	}
 
 	/**
