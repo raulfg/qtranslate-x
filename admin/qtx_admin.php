@@ -7,6 +7,9 @@ require_once(QTRANSLATE_DIR.'/admin/qtx_admin_class_translator.php');
 require_once(QTRANSLATE_DIR.'/admin/qtx_user_options.php');
 
 function qtranxf_collect_translations_deep( $qfields, $sep ) {
+	// reset() on an empty array returns false, which is neither a string nor
+	// iterable: foreach would warn and the field would be dropped silently.
+	if(empty($qfields)) return '';
 	$content = reset($qfields);
 	//qtranxf_dbg_log('qtranxf_collect_translations_deep: $content: ',$content);
 	if(is_string($content)) return qtranxf_join_texts($qfields,$sep);
@@ -14,7 +17,11 @@ function qtranxf_collect_translations_deep( $qfields, $sep ) {
 	foreach($content as $f => $r){
 		$texts = array();
 		foreach($qfields as $lang => &$vals){
-			$texts[$lang] = $vals[$f];
+			// Languages may disagree in shape (array in one, string in another).
+			// Reading $vals[$f] from a string with a string key is a TypeError on PHP 8.
+			// An empty text is safe here: qtranxf_join_b() omits empty languages, and
+			// it is never a copy of another language, so no extra languages look identical.
+			$texts[$lang] = (is_array($vals) && array_key_exists($f,$vals)) ? $vals[$f] : '';
 		}
 		$result[$f] = qtranxf_collect_translations_deep($texts,$sep); // recursive call
 	}
@@ -29,6 +36,14 @@ function qtranxf_collect_translations( &$qfields, &$request, $edit_lang ) {
 		$request = qtranxf_collect_translations_deep($qfields,$sep);
 	}else{
 		foreach($qfields as $nm => &$vals){
+			// ACF's hidden template row; it must never be persisted.
+			if($nm === 'acfcloneindex') continue;
+			// $request[$nm] is passed by reference, which is a write context: on a string
+			// it is a TypeError on PHP 8, and on an array with a missing key it creates
+			// that key as null (how the phantom acf[<field>][acfcloneindex] row is made).
+			// Test before taking the reference, and leave $request untouched when the
+			// branch cannot be walked; never substitute '' (a save must not empty a field).
+			if(!is_array($request) || !array_key_exists($nm,$request)) continue;
 			qtranxf_collect_translations($vals,$request[$nm],$edit_lang); // recursive call
 		}
 	}
