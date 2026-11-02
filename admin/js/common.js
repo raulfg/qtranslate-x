@@ -321,10 +321,6 @@ var qTranslateX=function(pg) {
 		h.lang = qTranslateConfig.activeLanguage;
 		var contents = qtranxj_split(inpField.value);//keep neutral text from older times, just in case.
 		                        //inpField.tagName
-		// Mechanism A (spec §8): keep the field's value as found (h.raw) and what is written in its place
-		// (h.written), so removeContentHookH can undo the overwrite below instead of leaving only the active language.
-		h.raw = inpField.value;
-		h.written = contents[h.lang];
 		inpField.value = contents[h.lang];
 		var qtx_prefix;
 		if(encode){
@@ -462,12 +458,26 @@ var qTranslateX=function(pg) {
 
 	var removeContentHookH=function(h) {
 		if(!h) return false;
-		// Mechanism A (spec §8): unhooking must be the inverse of hooking, otherwise a later re-hook splits an
-		// unmarked text and copies it to every language. Restore only if nobody has typed since the hook
-		// (value still equals what was written): a stale raw must never overwrite a user edit.
-		if(h.raw !== undefined && h.contentField.value === h.written){
-			h.contentField.value = h.raw;
+		// Mechanism A (spec §8): unhooking reassembles the current multilingual state - the synced active slot
+		// plus the other language slots - so no edit and no language is lost, and an unmarked value stays unmarked.
+		// Without it the field keeps only the active language and a later re-hook copies that text to every language.
+		if(h.mce && !h.mce.hidden){
+			h.mce.save({format: 'html'});
 		}
+		var active = h.fields[h.lang];
+		if(active) active.value = h.contentField.value;//same sync as onTabSwitch for the slot being left
+		var joined = '', first, same = true;//mirrors qtranxf_join_b, including the collapse of identical texts
+		for(var lang in h.fields){
+			var text = h.fields[lang].value;
+			if(text === '') continue;
+			if(first === undefined) first = text;
+			else if(text !== first) same = false;
+			joined += '[:' + lang + ']' + text;
+		}
+		if(first === undefined) joined = '';
+		else if(same) joined = first;
+		else joined += '[:]';
+		h.contentField.value = joined;
 		if(h.sepfield) jQuery(h.sepfield).remove();
 		for(var lang in h.fields){
 			jQuery(h.fields[lang]).remove();
