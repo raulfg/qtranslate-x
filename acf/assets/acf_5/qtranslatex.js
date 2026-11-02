@@ -51,6 +51,15 @@
 			if (typeof previous === 'function') {
 				previous.apply(this, arguments);
 			}
+			// ACF destroys and re-creates the editor under the same id when a repeater
+			// row is reordered (disableEditor/enableEditor). setEditorHooks skips a hook
+			// that already holds an editor, so release the destroyed one here and let
+			// loadTinyMceHooks bind the new one; otherwise the language tabs stop
+			// driving that editor.
+			var hook = ed && qTranslateConfig.qtx.hasContentHook(ed.id);
+			if (hook && hook.mce && hook.mce !== ed) {
+				hook.mce = null;
+			}
 			if (typeof window.loadTinyMceHooks === 'function') {
 				window.loadTinyMceHooks();
 			}
@@ -120,24 +129,21 @@
 
 		});
 
-		// Watch and remove content hooks when fields are removed
-		// however ACF removes the elements from the DOM early so
-		// we must hook into handler and perform updates there
-		var repeaterFieldRemove;
+		// Remove the content hooks of a repeater row when it is deleted. ACF drops the
+		// row's elements and editors by itself but knows nothing of the qTranslate
+		// registry, so each deleted row would leave its entries behind, pointing at
+		// detached nodes. ACF removes the elements early, so wrap its handler and
+		// unhook first, while the row is still in the document.
+		var repeater = acf.models ? acf.models.RepeaterField.prototype : acf.fields.repeater;
+		var repeaterRemoveOriginal = repeater.remove;
 
-		if (acf.models) {
-			repeaterFieldRemove = acf.models.RepeaterField.prototype.remove;
-		} else {
-			repeaterFieldRemove = acf.fields.repeater.remove;
-		}
-
-		function repeaterRemove($el) {
+		repeater.remove = function ($el) {
 			var row = ($el.$el || $el).closest('.acf-row'); // support old versions of ACF5PRO as well
-			row.find(_.toArray(field_types).join(',')).filter('.qtranxs-translatable').each(function() {
+			row.find('input, textarea').each(function() {
 				qTranslateConfig.qtx.removeContentHook(this);
 			});
 			// call the original handler
-			repeaterFieldRemove.call(this, $el);
+			return repeaterRemoveOriginal.apply(this, arguments);
 		};
 	});
 
