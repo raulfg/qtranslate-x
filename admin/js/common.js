@@ -466,13 +466,14 @@ var qTranslateX=function(pg) {
 		}
 		var active = h.fields[h.lang];
 		if(active) active.value = h.contentField.value;//same sync as onTabSwitch for the slot being left
-		var joined = '', first, same = true;//mirrors qtranxf_join_b, including the collapse of identical texts
+		// Mirrors qtranxf_join_b / qtranxf_allthesame: empty slots are not emitted, but they do count when testing
+		// whether all texts are identical, so [:en]A[:] keeps its markers. (Unlike PHP empty(), a literal '0' is kept.)
+		var joined = '', first, same = true;
 		for(var lang in h.fields){
 			var text = h.fields[lang].value;
-			if(text === '') continue;
-			if(first === undefined) first = text;
-			else if(text !== first) same = false;
-			joined += '[:' + lang + ']' + text;
+			if(first === undefined && text !== '') first = text;
+			if(text !== first) same = false;
+			if(text !== '') joined += '[:' + lang + ']' + text;
 		}
 		if(first === undefined) joined = '';
 		else if(same) joined = first;
