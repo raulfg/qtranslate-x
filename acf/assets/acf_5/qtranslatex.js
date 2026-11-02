@@ -1,90 +1,124 @@
 
 (function(){
 
-	var windowLoadCompleted = false;
-	jQuery(window).load(function() {
+	// Only proceed if qTranslate is loaded
+	function qtxLoaded() {
+		return typeof qTranslateConfig == 'object' && typeof qTranslateConfig.qtx == 'object';
+	}
 
-		// Prevent from being triggered again
-		if (windowLoadCompleted) {
-			return;
+	// Ensure that translation of standard field types is enabled
+	function standardFieldTypesEnabled() {
+		return !!window.acf_qtranslate_translate_standard_field_types;
+	}
+
+	var post_type;
+
+	// Whitelist fields for translation
+	function isTranslatableField(field){
+		if (post_type === undefined) {
+			post_type = jQuery('#post_type').val();
 		}
+		if (post_type === 'acf-field-group') {
+			if (field.id.match(/acf_fields-\d+-label/))         return true;
+			if (field.id.match(/acf_fields-\d+-instructions/))  return true;
+			if (field.id.match(/acf_fields-\d+-default_value/)) return true;
+			return false;
+		}
+		return true;
+	}
 
-		windowLoadCompleted = true;
+	// The wysiwyg is hooked here, not in the sweep below. This filter runs after
+	// ACF has replaced the editor wrap (initializeEditor renames it with
+	// acf.rename({destructive: true}), which creates a new textarea), so the id and
+	// the element are the definitive ones. Hooking earlier registers a node ACF is
+	// about to throw away and leaves the language tabs without an editor to drive.
+	// Registered at script execution, before any editor initializes.
+	acf.addFilter('wysiwyg_tinymce_settings', function (mceInit, id, field) {
+		if (!qtxLoaded() || !standardFieldTypesEnabled()) return mceInit;
+		if (!field || field.type !== 'wysiwyg') return mceInit;
 
-		// Only proceed if qTranslate is loaded
-		if (typeof qTranslateConfig != 'object' || typeof qTranslateConfig.qtx != 'object') {
+		var textarea = field.$input()[0];
+		if (!textarea || !isTranslatableField(textarea)) return mceInit;
+
+		// refreshContentHook is the public, idempotent entry point: it drops a hook
+		// left on this id (without losing a language) and hooks the element again.
+		if (!qTranslateConfig.qtx.refreshContentHook(textarea)) return mceInit;
+
+		// Bind TinyMCE to the hook once the editor exists. loadTinyMceHooks (common.js)
+		// binds every editor that has a hook and is not bound yet.
+		var previous = mceInit.init_instance_callback;
+		mceInit.init_instance_callback = function (ed) {
+			if (typeof previous === 'function') {
+				previous.apply(this, arguments);
+			}
+			if (typeof window.loadTinyMceHooks === 'function') {
+				window.loadTinyMceHooks();
+			}
+		};
+
+		return mceInit;
+	});
+
+	// ACF fires 'load' from a timeout after window.load, and the wysiwyg editors
+	// are renamed during it. Running first keeps the sweep ahead of that rename.
+	function onAcfLoad(callback) {
+		if (acf.didAction('load')) {
+			callback();
+		} else {
+			acf.addAction('load', callback, 1);
+		}
+	}
+
+	onAcfLoad(function() {
+
+		if (!qtxLoaded()) {
 			return;
 		}
 
 		// Enable the language switching buttons
 		qTranslateConfig.qtx.enableLanguageSwitchingButtons('block');
 
-
-		// Ensure that translation of standard field types is enabled
-		if (!window.acf_qtranslate_translate_standard_field_types) {
+		if (!standardFieldTypesEnabled()) {
 			return;
 		}
 
-		// Selectors for supported field types
+		// Selectors for supported field types. The wysiwyg is not here (see the
+		// filter above), and 'textarea' must not match the editors: these are
+		// '.wp-editor-area' textareas, hooked by the filter instead.
 		var field_types = {
 			text:      'input:text',
-			textarea:  'textarea',
-			wysiwyg:   '.wp-editor-area',
+			textarea:  'textarea:not(.wp-editor-area)',
 		};
 
-		// Remove content hooks from ACF Fields
+		// Remove content hooks from ACF Fields. qTranslate hooks every
+		// '.wp-editor-area' at document ready, before ACF replaces those nodes;
+		// the filter above hooks the replacements, so drop the doomed hooks here.
 		jQuery('.acf-postbox .acf-field').find('.qtranxs-translatable').each(function() {
 			qTranslateConfig.qtx.removeContentHook(this);
 		});
-
-		var post_type = jQuery('#post_type').val();
-
-		// Whitelist fields for translation
-		function isTranslatableField(field){
-			if (post_type === 'acf-field-group') {
-				if (field.id.match(/acf_fields-\d+-label/))         return true;
-				if (field.id.match(/acf_fields-\d+-instructions/))  return true;
-				if (field.id.match(/acf_fields-\d+-default_value/)) return true;
-				return false;
-			}
-			return true;
-		}
 
 		// Setup field types
 		jQuery.each(field_types, function(field_type, selector) {
 
 			// Add content hooks for existing fields
-			acf.get_fields({ type: field_type }).each(function() {
-				var form = jQuery(this).closest('form').get(0);
+			var fields = acf.findFields ? acf.findFields({ type: field_type }) : acf.get_fields({ type: field_type });
+			fields.each(function() {
 				var field = jQuery(this).find(selector).get(0);
-				if (!isTranslatableField(field)) return;
-				qTranslateConfig.qtx.addContentHookC(field, form);
+				if (!field || !isTranslatableField(field)) return;
+				qTranslateConfig.qtx.addContentHookC(field);
 			});
 
 			// Watch and add content hooks when new fields are added
 			acf.add_action('append_field/type=' + field_type, function($el) {
-				var form = $el.closest('form').get(0);
 				var field = $el.find(selector).get(0);
-				if (!isTranslatableField(field)) return;
-				qTranslateConfig.qtx.addContentHookC(field, form);
-
-				if (jQuery(field).hasClass('wp-editor-area')) {
-					//qTranslateConfig.qtx.addContentHooksTinyMCE();
-
-					// We must manually trigger load event so that the
-					// loadTinyMceHooks function which calls setEditorHooks is executed
-					var loadEvent = document.createEvent('UIEvents');
-					loadEvent.initEvent('load',false,false,window);
-					window.dispatchEvent(loadEvent);
-				}
+				if (!field || !isTranslatableField(field)) return;
+				qTranslateConfig.qtx.addContentHookC(field);
 
 				// Run at higher integer priority than the default in case the ACF handlers
 				// change the id of the underlying input
 			}, 100);
 
 		});
-
-		//qTranslateConfig.qtx.addContentHooksTinyMCE();
 
 		// Watch and remove content hooks when fields are removed
 		// however ACF removes the elements from the DOM early so
