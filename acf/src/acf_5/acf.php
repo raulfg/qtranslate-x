@@ -21,6 +21,7 @@ class acf_qtranslate_acf_5 implements acf_qtranslate_acf_interface {
 		add_filter('acf/format_value',                array($this, 'format_value'));
 		add_action('acf/include_fields',              array($this, 'include_fields'));
 		add_action('acf/input/admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
+		add_filter('acf/update_value',                array($this, 'log_translation_loss'), 10, 3);
 	}
 
 	/**
@@ -59,6 +60,94 @@ class acf_qtranslate_acf_5 implements acf_qtranslate_acf_interface {
 		if (is_string($value)) {
 			$value = qtrans_useCurrentLanguageIfNotFoundUseDefaultLanguage($value);
 			$value = maybe_unserialize($value);
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Log, never block, a save that replaces a multilingual value with a
+	 * single-language one.
+	 *
+	 * PHP cannot tell "the editor bug swallowed the other languages" from "the
+	 * editor removed a translation on purpose", so the value is never altered:
+	 * this only turns a silent regression into a detectable one. It also covers
+	 * wysiwyg fields set to "Text Only" or "Delay initialization", which get no
+	 * JS hook at all.
+	 *
+	 * Fires for every field of every type on every save, so the cheap checks on
+	 * the incoming value run first and the stored value is only read once they
+	 * pass. An empty incoming value is how ACF clears a field legitimately and
+	 * is not treated as loss. Field content is never logged, only its length.
+	 *
+	 * @param mixed $value   The value about to be saved.
+	 * @param mixed $post_id The post (or option/user) id the value is saved to.
+	 * @param array $field   The field array.
+	 * @return mixed The unchanged $value.
+	 */
+	public function log_translation_loss($value, $post_id, $field) {
+		try {
+			if (!is_string($value) || $value === '') {
+				return $value;
+			}
+			if (!function_exists('qtranxf_isMultilingual') || !function_exists('qtranxf_split_blocks')
+				|| !function_exists('qtranxf_get_language_blocks') || !function_exists('acf_get_metadata') || !function_exists('acf_decode_post_id') || !function_exists('get_metadata_raw')) {
+				return $value;
+			}
+			if (qtranxf_isMultilingual($value) || !is_array($field) || empty($field['name'])) {
+				return $value;
+			}
+
+			// Read the previous value through the metadata API, not $wpdb->get_var(),
+			// which turns an empty string into NULL and so hides a present-but-empty
+			// row. qTranslate-X registers a get_*_metadata filter on the front end
+			// and in CLI that collapses the value to the current language; even
+			// get_metadata_raw() runs it. It is lifted for this one read, otherwise
+			// every loss would be invisible to the guard. The read itself is served
+			// from WordPress' per-object meta cache. Options have no such filter
+			// here, so they use ACF's own read.
+			$decoded = acf_decode_post_id($post_id);
+			if (empty($decoded['id'])) {
+				return $value;
+			}
+			if ($decoded['type'] === 'option') {
+				$stored = acf_get_metadata($post_id, $field['name']);
+			} else {
+				$hook    = 'get_' . $decoded['type'] . '_metadata';
+				$lifted  = array();
+				foreach (array('qtranxf_filter_postmeta', 'qtranxf_filter_usermeta') as $callback) {
+					$priority = has_filter($hook, $callback);
+					if ($priority !== false) {
+						remove_filter($hook, $callback, $priority);
+						$lifted[$callback] = $priority;
+					}
+				}
+				try {
+					$rows = get_metadata_raw($decoded['type'], $decoded['id'], $field['name'], false);
+				} finally {
+					foreach ($lifted as $callback => $priority) {
+						add_filter($hook, $callback, $priority, 4);
+					}
+				}
+				$stored = $rows ? $rows[0] : null;
+			}
+			if (!is_string($stored) || !qtranxf_isMultilingual($stored)) {
+				return $value;
+			}
+
+			$found = array();
+			qtranxf_split_blocks(qtranxf_get_language_blocks($stored), $found);
+
+			error_log(sprintf(
+				'acf-qtranslate: translation loss post=%s field=%s languages=%s length_before=%d length_after=%d',
+				is_scalar($post_id) ? $post_id : gettype($post_id),
+				isset($field['key']) ? $field['key'] : $field['name'],
+				implode(',', array_keys($found)),
+				strlen($stored),
+				strlen($value)
+			));
+		} catch (\Throwable $e) {
+			// A guard that fails must never break the save it is watching.
 		}
 
 		return $value;
