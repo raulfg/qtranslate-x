@@ -238,6 +238,30 @@ durante esa unica lectura, porque si no devolveria solo el idioma en curso.
 Verificado guardando el mismo campo desde `/es/`, `/en/`, `/fr/` y `/ar/`: cada URL escribe su
 idioma, los cuatro conservan el texto propio y ninguno pisa a otro.
 
+### Los buscadores del administrador dejan de listar los cuatro idiomas
+
+Al elegir una pagina en un campo `post_object` de ACF, o al buscar un enlace desde el editor,
+cada resultado se listaba como `[:en]...[:es]...[:fr]...[:ar]...`: el titulo entero, los cuatro
+idiomas seguidos. Con 337 entradas publicadas que tienen el titulo multiidioma, la lista era
+practicamente ilegible.
+
+Un unico sitio lo causaba. `qtranxf_admin_the_title()` se rendia ante **cualquier** peticion AJAX
+del administrador y devolvia el titulo crudo:
+
+```php
+if(defined('DOING_AJAX') && DOING_AJAX)//nav-menus.php#752
+	return $title;
+```
+
+El comentario delata para que se escribio. El editor de menus copia el titulo que recibe dentro
+de la etiqueta del elemento, asi que un titulo ya resuelto quedaria grabado como etiqueta para
+todos los idiomas: ahi el valor crudo es imprescindible. Pero la condicion arrastraba con el a
+todo lo demas, y tanto el buscador de ACF como el de enlaces son AJAX.
+
+Ahora solo las peticiones propias del editor de menus (`add-menu-item`, `menu-quick-search`,
+`menu-locations-save`) reciben el titulo crudo. El resto del administrador recibe el idioma que
+se esta editando, que es lo que un humano espera leer en una lista.
+
 ### Huecos conocidos
 
 - **"Text Only" y "Delay initialization".** Un `wysiwyg` con `tabs => 'text'` o `delay => 1` no

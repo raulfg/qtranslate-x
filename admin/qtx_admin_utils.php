@@ -692,11 +692,29 @@ function qtranxf_admin_category_description($text) {
 }
 add_filter('category_description', 'qtranxf_admin_category_description',0);
 
+/**
+ * Resolve a post title to the language being edited, inside the admin.
+ *
+ * The menu editor is the exception: it copies the title it is given into the
+ * menu item's own label, so a resolved title would be stored as the label for
+ * every language. It must keep the raw multilingual string.
+ *
+ * Every other admin screen, and every admin AJAX response, is showing the title
+ * to a human. Bailing out on the whole of DOING_AJAX — which is what this did,
+ * for the sake of the menu editor alone — is why the editor's link search and
+ * ACF's post pickers listed titles as "[:en]...[:es]...[:fr]...[:ar]..." instead
+ * of the one language being worked in.
+ */
 function qtranxf_admin_the_title($title) {
-	global $pagenow;
-	//todo this filter should not be used in admin area at all?
-	if(defined('DOING_AJAX') && DOING_AJAX)//nav-menus.php#752
-		return $title;
+	if (function_exists('wp_doing_ajax') ? wp_doing_ajax() : (defined('DOING_AJAX') && DOING_AJAX)) {
+		// The menu editor's own requests, by the action they post.
+		$action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
+		if (in_array($action, array('add-menu-item', 'menu-quick-search', 'menu-locations-save'), true)) {
+			return $title;
+		}
+		return qtranxf_useCurrentLanguageIfNotFoundUseDefaultLanguage($title);
+	}
+
 	global $pagenow;
 	switch($pagenow){
 		//case 'term.php':
