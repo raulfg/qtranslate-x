@@ -145,4 +145,51 @@ class acf_qtranslate_acf_5_url extends acf_field_url {
 		return qtrans_join($value);
 	}
 
+	/*
+	 *  validate_value()
+	 *
+	 *  Validates each language on its own instead of the whole submission.
+	 *
+	 *  This field posts one value per language, so what reaches validation is an
+	 *  array, not a string. acf_field_url::validate_value() rejects any non-string
+	 *  outright, which made every save fail with "Value must be a valid URL" even
+	 *  when every language was empty: an array of empty strings is not empty(), so
+	 *  it always reached that check. Validating language by language also reports
+	 *  which language is at fault, following the same shape qTranslate-XT uses in
+	 *  QTX_Module_Acf_Admin::validate_language_values_standard().
+	 *
+	 *  @param	bool|string	$valid - true, or the message of a validator that already objected
+	 *  @param	mixed		$value - the posted value: an array keyed by language code
+	 *  @param	array		$field - the field array holding all the field options
+	 *  @param	string		$input - the name of the HTML input
+	 *
+	 *  @return	bool|string - true, or the first error found, prefixed with its language
+	 */
+	function validate_value($valid, $value, $field, $input) {
+		// Another validator already objected, or this is not a per-language submission.
+		if ($valid !== true || !is_array($value)) {
+			return parent::validate_value($valid, $value, $field, $input);
+		}
+
+		global $q_config;
+
+		foreach ($value as $language => $language_value) {
+			// An empty language is not a malformed URL; required-ness is checked elsewhere.
+			if (!is_string($language_value) || $language_value === '') {
+				continue;
+			}
+
+			$language_valid = parent::validate_value(true, $language_value, $field, $input);
+			if ($language_valid !== true && is_string($language_valid)) {
+				$language_name = isset($q_config['language_name'][$language])
+					? $q_config['language_name'][$language]
+					: $language;
+
+				return '(' . $language_name . ') ' . $language_valid;
+			}
+		}
+
+		return $valid;
+	}
+
 }

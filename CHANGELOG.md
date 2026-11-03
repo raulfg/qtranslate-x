@@ -133,6 +133,36 @@ cargadores se protegen con `class_exists`, de modo que no hay fatal, pero el rie
 si se reactivara el autónomo y cargara primero, ganaría la copia antigua, **sin el arreglo**, y el
 módulo se apartaría sin avisar. Se retiran sus 29 ficheros del repositorio.
 
+### `qtranslate_url` ya se puede guardar
+
+El tipo `qtranslate_url` hacía fallar el guardado de **toda** la pantalla, y lo hacía desde
+siempre: no es una regresión de esta versión.
+
+El campo pinta un input por idioma, así que lo que llega a la validación es un **array** indexado
+por código de idioma, no una cadena. `acf_field_url::validate_value()`, de la que hereda, espera
+una cadena:
+
+- En Secure Custom Fields 6.9.7 hay una guarda `if (!is_string($value))` que devuelve
+  *«Value must be a valid URL»*. Como un array de cuatro cadenas vacías no es `empty()`, llegaba
+  siempre a esa guarda: el guardado se bloqueaba **incluso con los cuatro idiomas vacíos**.
+- En ACF Pro 5.8.14 y 6.2.0 no existe esa guarda, así que la ejecución alcanzaba
+  `strpos($array, '://')`, que en PHP 8 es un `TypeError` fatal.
+
+`acf_qtranslate_acf_5_url::validate_value()` valida ahora **cada idioma por separado** con el
+validador original de ACF y devuelve el primer error prefijado con el nombre del idioma
+(`(Français) Value must be a valid URL`). Un idioma vacío no es una URL malformada y se omite;
+la obligatoriedad se sigue comprobando donde ya se comprobaba.
+
+Es la misma forma que usa qTranslate-XT en
+`QTX_Module_Acf_Admin::validate_language_values_standard()`, con una diferencia: XT recibe la
+cadena multiidioma y la parte con `qtranxf_split()`, mientras que aquí el valor ya llega troceado
+por idioma. XT no cubre este caso —no registra ningún filtro para `url` y trae `qtranslate_url`
+desactivado por defecto—, así que el recorrido se alimenta del array.
+
+Los otros seis tipos `qtranslate_*` no necesitaban nada: `text` y `textarea` heredan validadores
+que se guardan con `is_scalar()`, `post_object` y `wysiwyg` no validan valor, e `image` y `file`
+se comprobaron guardando con ellos presentes.
+
 ### Huecos conocidos
 
 - **"Text Only" y "Delay initialization".** Un `wysiwyg` con `tabs => 'text'` o `delay => 1` no
@@ -142,8 +172,12 @@ módulo se apartaría sin avisar. Se retiran sus 29 ficheros del repositorio.
 - **Alcance de la auditoría.** Solo claves de meta sin guion bajo, solo marcadores con corchetes
   (`[:xx]`; los `{:xx}` de 100 filas de Yoast y los `<!--:xx-->` no se compararon), con clave
   `post_id|meta_key`. No se compararon termmeta, usermeta ni commentmeta.
-- **`flexible_content` y `clone`** no se probaron (no hay ninguno en producción), ni `repeater`
-  anidado.
+- **Repeaters paginados, ACF Blocks y `acf_form()` en frontend** no se han probado. Ninguno se usa
+  en este proyecto (0 repeaters con paginación, 0 grupos con ubicación `block`, 0 llamadas a
+  `acf_form()`), y los tres cargan o envían campos por vías que no pasan por el enganche en carga
+  de página, así que activarlos obliga a verificar de nuevo.
+- **`color_picker`** no quedó confirmado: su valor no llegó a guardarse en la prueba, pero por la
+  forma de interactuar con su input oculto, no por el plugin.
 - **`max_input_vars`.** Medido en la pantalla más pesada (6.606 variables de 30.000, un 22 %) y
   con incremento 0 respecto a antes del arreglo: antes cada editor ya llevaba cinco inputs ocultos
   del enganche del núcleo, ahora los lleva una sola vez. Un truncamiento exigiría miles de filas
@@ -160,6 +194,34 @@ módulo se apartaría sin avisar. Se retiran sus 29 ficheros del repositorio.
 - La guarda de pérdida, en silencio desde la corrección de A: 15 líneas antes y después.
 - Tras el cambio de caché: recarga forzada del admin y guardado de la página de laboratorio con
   las nuevas URLs `?ver=4.4.0` presentes y el mismo resultado de 9 intactos y 2 benignos.
+
+#### Matriz de contenedores y motores
+
+Verificado en navegador sobre una copia de la base de datos de producción, con
+**ACF Pro 5.8.14**, **ACF Pro 6.2.0** y **Secure Custom Fields 6.9.7**:
+
+- `wysiwyg` de primer nivel, en `repeater`, en `repeater` anidado, en `group`, en `group` con
+  `repeater` dentro, y en `group > repeater > flexible_content > layout`: en todos los casos los
+  cuatro idiomas sobreviven al guardar, y editar uno deja los otros tres byte a byte intactos.
+- Filas de `repeater`, subfilas y bloques de `flexible_content` creados en la misma sesión nacen
+  enganchados con sus cuatro idiomas: el enganche no depende de que el contenedor existiera al
+  cargar la página.
+- `clone` en modo `seamless`, donde el nombre del input se reescribe a
+  `acf[clone][clone_subcampo]`, y en modo `group`: los enganches siguen el nombre reescrito.
+- `wysiwyg` después de un `tab` y dentro de un `accordion`.
+- Página de opciones ACF (`wp_options`, fuera de `post.php`): de 142 opciones solo cambia la
+  editada, 0 pierden idiomas.
+- Los 44 tipos de campo que registra el motor, cubiertos por un grupo creado al efecto.
+- Página más pesada del sitio (3.594 claves de meta, 10.602 campos en la POST, 227 `wysiwyg`):
+  0 claves perdidas, 0 creadas, 0 idiomas perdidos, 0 filas `acfcloneindex`.
+- `qtranslate_url`: guarda los cuatro idiomas en los tres motores, y una URL malformada en un solo
+  idioma sigue rechazándose nombrando ese idioma.
+
+Al guardar, TinyMCE reformatea el HTML del **idioma activo** de cada `wysiwyg` poblado de la
+pantalla, añadiendo saltos de línea entre etiquetas de bloque. Medido idioma a idioma: el texto y
+el marcado quedan idénticos tras normalizar espacios, y los idiomas no activos vuelven byte a byte
+iguales porque viajan en los inputs ocultos sin pasar por el editor. Es comportamiento de
+WordPress, no del plugin, pero conviene saberlo: un guardado deja ruido cosmético en esos campos.
 
 ## 4.3.1
 
