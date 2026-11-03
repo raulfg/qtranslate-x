@@ -695,34 +695,44 @@ add_filter('category_description', 'qtranxf_admin_category_description',0);
 /**
  * Resolve a post title to the language being edited, inside the admin.
  *
- * The menu editor is the exception: it copies the title it is given into the
- * menu item's own label, so a resolved title would be stored as the label for
- * every language. It must keep the raw multilingual string.
+ * A title is content, not interface, so it follows the language switcher rather
+ * than the language the admin itself is displayed in. The switcher writes its
+ * choice to the qtrans_edit_language cookie on every click, which is what
+ * qtranxf_getLanguageEdit() reads and what the ACF bridge already uses.
  *
- * Every other admin screen, and every admin AJAX response, is showing the title
- * to a human. Bailing out on the whole of DOING_AJAX — which is what this did,
- * for the sake of the menu editor alone — is why the editor's link search and
- * ACF's post pickers listed titles as "[:en]...[:es]...[:fr]...[:ar]..." instead
- * of the one language being worked in.
+ * The menu editor is the exception, on both paths: it copies the title it is
+ * given into the menu item's own label, so a resolved title would be stored as
+ * the label for every language. It must keep the raw multilingual string.
+ *
+ * Before this, admin AJAX bailed out wholesale — for the sake of the menu editor
+ * alone — which is why the editor's link search and ACF's post pickers listed
+ * every result as "[:en]...[:es]...[:fr]...[:ar]...", and the non-AJAX path
+ * resolved to the admin's own language, so a picker label stayed in the default
+ * language no matter which tab the editor was working in.
  */
 function qtranxf_admin_the_title($title) {
-	if (function_exists('wp_doing_ajax') ? wp_doing_ajax() : (defined('DOING_AJAX') && DOING_AJAX)) {
+	$is_ajax = function_exists('wp_doing_ajax') ? wp_doing_ajax() : (defined('DOING_AJAX') && DOING_AJAX);
+
+	if ($is_ajax) {
 		// The menu editor's own requests, by the action they post.
 		$action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
 		if (in_array($action, array('add-menu-item', 'menu-quick-search', 'menu-locations-save'), true)) {
 			return $title;
 		}
-		return qtranxf_useCurrentLanguageIfNotFoundUseDefaultLanguage($title);
-	}
-
-	global $pagenow;
-	switch($pagenow){
+	} else {
+		global $pagenow;
 		//case 'term.php':
 		//case 'edit-tags.php':
-		case 'nav-menus.php':
+		if ($pagenow === 'nav-menus.php') {
 			return $title;
-		default: return qtranxf_useCurrentLanguageIfNotFoundUseDefaultLanguage($title);
+		}
 	}
+
+	$resolved = qtranxf_use_language(qtranxf_getLanguageEdit(), $title);
+
+	// An empty slot is worse than the wrong language: a result with no label
+	// cannot be picked from a list. Fall back to whatever language has one.
+	return $resolved === '' ? qtranxf_useCurrentLanguageIfNotFoundUseDefaultLanguage($title) : $resolved;
 }
 add_filter('the_title', 'qtranxf_admin_the_title', 0);//WP: fires for display purposes only
 

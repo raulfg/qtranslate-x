@@ -262,6 +262,20 @@ Ahora solo las peticiones propias del editor de menus (`add-menu-item`, `menu-qu
 `menu-locations-save`) reciben el titulo crudo. El resto del administrador recibe el idioma que
 se esta editando, que es lo que un humano espera leer en una lista.
 
+**Y es el idioma del conmutador, no el del panel.** Un titulo es contenido, no interfaz, asi que
+sigue a la barra de idiomas. El primer intento resolvia con el idioma propio del administrador y
+devolvia siempre el mismo —normalmente ingles— estuviera donde estuviera el conmutador: habia
+pasado de cuatro idiomas ilegibles a uno equivocado. El conmutador escribe su eleccion en la
+cookie `qtrans_edit_language` en cada clic, que es lo que lee `qtranxf_getLanguageEdit()` y lo
+mismo que ya usaba el puente de ACF; ahora tambien lo usan los titulos.
+
+Afecta a los dos caminos, no solo al AJAX: la etiqueta que un `post_object` ya tiene elegida se
+pinta al cargar la pagina, de modo que resolverla solo en las busquedas dejaba la etiqueta en un
+idioma y los resultados en otro.
+
+Un idioma vacio no se fuerza: si el titulo no existe en el idioma en curso se recurre al que si
+tenga, porque un resultado sin etiqueta no se puede elegir de una lista.
+
 ### Huecos conocidos
 
 - **"Text Only" y "Delay initialization".** Un `wysiwyg` con `tabs => 'text'` o `delay => 1` no
