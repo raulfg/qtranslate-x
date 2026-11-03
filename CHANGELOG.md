@@ -11,6 +11,259 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 5.2.0
+
+### La tabla de indexables de Yoast deja de congelar un idioma
+
+Yoast cachea en `yoast_indexable` un título, una descripción y las etiquetas sociales ya
+calculadas, una fila por objeto, y lee ese caché al renderizar la cabecera. En un sitio
+multilingüe eso es una trampa: hay una sola fila, pero lo que guarda depende del idioma
+que estuviera activo cuando se escribió.
+
+El montaje que funciona es que la fila guarde el valor **sin resolver**
+(`[:en]Policies[:es]Políticas[:]`) y que los filtros del módulo lo resuelvan en cada
+petición. Así una fila sirve los cuatro idiomas. Pero Yoast indexa también desde el
+front, y un guardado desde el front escribe el valor ya resuelto en el idioma de ese
+visitante. La fila se queda sin marcadores, los filtros no encuentran nada que resolver,
+y todos los idiomas reciben el mismo texto. Nada falla ni avisa: los filtros hacen su
+trabajo correctamente sobre un dato que ya venía mal, así que esto rompe en silencio y se
+queda roto.
+
+Se añade `seo/qwpseo-indexables.php`, con dos mitades que solo sirven juntas:
+
+- En el front, nunca persistir un indexable (`Yoast\WP\SEO\should_index_indexables` y
+  `wpseo_should_save_indexable` a `false`). Esto evita daño **nuevo**. No repara lo
+  existente, porque `Indexable_Repository::find_by_id_and_type()` solo llama al
+  constructor cuando `find_one()` no devuelve fila: si la fila está, la usa tal cual.
+- En el admin, dejar que Yoast guarde y después reescribir encima los valores crudos
+  (`wpseo_saved_indexable`). Esto es lo que repara una fila, y se repite en cada edición.
+
+Adaptado de `src/modules/wp-seo/` de qTranslate-XT, que resolvió el mismo problema.
+
+**Medido en esta instalación.** Antes: 44 filas con marcadores en `title`, 56 en
+`description`, 5 en `breadcrumb_title`. Después de la pasada de reparación: 45, 129 y 102.
+Ninguna fila pierde marcadores: una clasificación previa de los 366 cambios propuestos dio
+316 campos que ganan marcadores, 0 que los pierden y 50 neutros.
+
+Efecto comprobado sobre 60 URLs en cuatro idiomas: **cero cambios** en título, descripción,
+canonical, hreflang, OpenGraph, Twitter, robots y marcadores filtrados; y 37 URLs con el
+`BreadcrumbList` del JSON-LD corregido. Por ejemplo `/ar/contact-us/` pasa de
+`Portada > Contact us` a `Portada > اتصال`, y `/ar/harvest/` de un `Harvest` cacheado y
+obsoleto al `Harvest 2025` actual. El rendimiento no empeora: la media de cuatro URLs
+representativas baja de 0,338/0,289/0,192/0,313 s a 0,285/0,280/0,184/0,278 s.
+
+### El valor se lee en crudo, y esto no es un detalle
+
+`qwpseo_read_raw_post_meta()` levanta `qtranxf_filter_postmeta` del hook
+`get_post_metadata` durante una lectura, con la misma técnica que
+`acf/src/acf_5/acf.php::read_stored_value()`.
+
+Hace falta porque `get_post_meta()` pasa por ese filtro y devuelve el valor reducido al
+**único** idioma activo. Medido: `get_post_meta( 363, '_yoast_wpseo_title', true )`
+devuelve `Presidential Suite | SHA`, mientras la fila almacenada guarda
+`[:en]Presidential Suite | SHA[:es]Suite Presidencial | SHA[:fr]...`. Leer así y escribir
+el resultado en el indexable es exactamente el daño que este módulo existe para evitar.
+
+### Dos construcciones muertas que PHP 8.4 deprecia
+
+Ambas salen de cotejar el fork con qTranslate-XT 3.16.2, que comparte la misma base
+3.4.6.8 y resolvió las dos **borrando** el código en lugar de reescribirlo.
+
+`inc/qtx_dbg.php` pierde `assert_options(ASSERT_BAIL, true)`. El ajuste es inerte en PHP
+8.4: una aserción fallida lanza `AssertionError`, `assert.exception` está a su vez
+deprecado, y ya no existe la vía de «bail». Comprobado empíricamente, no supuesto. XT no
+tiene ni directorio `inc/` ni una sola llamada a `assert_options`.
+
+`slug/includes/termmeta-core.php` pierde `get_term_custom_values()`, un polyfill de antes
+de que WordPress 4.4 trajera term meta nativa. Declaraba un parámetro opcional antes de uno
+requerido. No tenía ni una llamada en los 9.943 ficheros PHP de `wp-content`, contados con
+el tokenizador de PHP para no confundir menciones en comentarios ni la propia definición
+con llamadas reales. XT eliminó este fichero y lee term meta con
+`get_metadata( 'term', ... )`.
+
+Las deprecaciones emitidas al cargar pasan de cinco a una, y la que queda es de otro plugin.
+
+### Cada idioma sirve su propia descripción, o ninguna
+
+El resolutor que qTranslate pone en `wpseo_metadesc` cascadeaba a otro idioma cuando el
+activo estaba vacío, de modo que una página sin traducir servía, por ejemplo, la
+descripción inglesa a un lector árabe. Ahora se queda vacía. Una descripción no tiene
+sustituto correcto en otro idioma, y una equivocada es peor que ninguna.
+
+Para que ese cambio tuviera algún efecto visible hubo que retirar tres filtros del tema
+(`themes/crepesandthemes/includes/qtranslate.php`) que resolvían `wpseo_metadesc`,
+`wpseo_opengraph_title` y `wpseo_opengraph_desc` a través de `__()` con prioridad 10.
+`__()` lo intercepta `qtranxf_gettext` con prioridad 0, que cae al idioma por defecto, así
+que resolvían la cadena antes de que el módulo pudiera verla. Cambiar solo el filtro no
+servía de nada mientras siguieran ahí.
+
+Medido sobre 60 URLs (15 páginas × 4 idiomas): las que sirven una descripción de otro
+idioma pasan de 26 a 0, y cero marcadores se escapan a ninguna cabecera.
+
+### Los títulos sociales no se vacían: política por campo
+
+Títulos y descripciones sociales pasaban por un mismo filtro que los vaciaba a los dos.
+Para una descripción es correcto; para un título no, y el comentario que lo defendía se
+apoyaba en una premisa falsa: daba por hecho que quien no recibe `og:title` cae al
+`<title>` del documento, y que ese `<title>` es correcto por idioma. No lo es, porque
+`wpseo_title` **no** está en la lista de vaciado — solo `wpseo_metadesc` lo está — así que
+el `<title>` ya cascadea a otro idioma.
+
+Medido en el post 77194, con metadatos de Yoast solo en `en` y `es`: `/fr/` y `/ar/`
+renderizaban el `<title>` **inglés** y omitían `og:title` por completo. La página se
+contradecía a sí misma. En la línea base de 60 URLs, las que tenían `<title>` pero no
+`og:title` eran 11; ahora son 0, que es lo que había antes del módulo.
+
+Queda entonces una política por campo: los títulos cascadean, igual que ya hacía
+`wpseo_title`; las descripciones se vacían, porque una descripción no tiene sustituto y un
+título sí.
+
+### Se restituye el selector `getPostType` en el editor clásico
+
+Desde Yoast 27.6 el componente raíz del metabox abre con un `useSelect` que llama a
+`select( 'yoast-seo/editor' ).getPostType()` **antes** de comprobar `isBlockEditor`. Si ese
+selector falta, la llamada lanza `getPostType is not a function`, React desmonta el metabox
+entero y el editor muestra un panel de error sin un solo campo SEO.
+
+Normalmente el selector está: lo registra `js/dist/externals-redux.js`, que también carga
+en pantallas clásicas. Por eso este parche se escribió, se consideró código muerto y se
+retiró. Fue un error: la instalación de producción se rompió con ese error exacto sirviendo
+bundles idénticos byte a byte, en los que `externals-redux.js` también contiene
+`getPostType`. El selector desaparece en tiempo de ejecución por una causa del entorno —ese
+script no llega a la página— y no por la versión de Yoast. La causa de fondo sigue abierta.
+
+El parche no necesita saber el motivo: añade el selector solo cuando falta, **mutando una
+vez** el objeto de selectores del store. No devuelve una copia parcheada, porque `useSelect`
+memoiza sobre la identidad de ese objeto y una copia nueva en cada llamada vacía todos los
+campos. Donde el selector ya existe es un no-op comprobado.
+
+## 5.1.0
+
+> Esta sección está en inglés por decisión expresa, a diferencia del resto del fichero.
+
+Bundles the companion plugin **Integration: Yoast SEO & qTranslate-X** as the `seo/` module.
+Same move as 4.1.0 with the slug and 4.2.0 with ACF: a single plugin now owns the whole
+multilingual layer.
+
+**Why now.** Upstream stopped at 1.1.1 and its `readme.txt` still declares `Tested up to: 4.5`
+— WordPress 4.5, April 2016. Nearly a decade without a release, while the Yoast SEO it glues to
+has reached 24.3. Glue that stands still against a dependency that does not has only two
+endings: it breaks, or somebody maintains it. And as the file provenance below shows, we have in
+fact been maintaining it for a while already. Bundling does not take the maintenance over; it
+admits it. From here the fixes live in the same repository, and under the same version number,
+as the code they patch.
+
+**Why a minor and not a major.** No data migration, no change to the format of anything stored
+and no change in behaviour: it is the same code, loaded from somewhere else. The plugin only
+gains a capability.
+
+### What is added
+
+- `seo/` with `qwpseo-front.php`, `qwpseo-admin.php`, `qwpseo-schema.php`,
+  `qwpseo-media-admin.php`, `js/`, `LICENSE`, `readme.txt` and `i18n-config.json`, moved **byte
+  for byte**. All of the adaptation lives in the loader, never in the moved code.
+- `seo/loader.php`, replacing its bootstrap (`wordpress-seo-qtranslate-x.php`). It keeps
+  `QWPSEO_VERSION`, `qwpseo_load_media_admin()` on `plugins_loaded` at priority 3,
+  `qwpseo_init_language()` on `qtranslate_init_language` and `qwpseo_no_page_analysis()`. It
+  drops only the plugin header: the original bootstrap had no activation, deactivation or
+  uninstall hooks, so unlike the slug companion there was no lifecycle code to strip.
+- The plugin description now mentions multilingual metadata for Yoast SEO.
+
+### This module is NOT a pristine copy of its upstream
+
+`acf/src/` can be diffed against funkjedi's plugin line for line. `seo/` cannot, and the
+difference matters for whoever comes next: two of its files never existed upstream at all, so
+looking for them in the qTranslate-Team repository is wasted time. File by file:
+
+| File | Origin |
+|---|---|
+| `qwpseo-front.php` | upstream 1.1.1 (`d43987b7`), **+2 lines** of ours (`f0d71cf4`) |
+| `qwpseo-admin.php` | upstream 1.1.1 (`d43987b7`), **+30 lines** of ours (`a76190b8`) |
+| `readme.txt`, `LICENSE`, `i18n-config.json` | upstream 1.1.1 (`d43987b7`) |
+| `qwpseo-schema.php` | **ours** (`f0d71cf4`), no upstream equivalent |
+| `qwpseo-media-admin.php` | **ours** (`a76190b8`), no upstream equivalent |
+| `js/admin-yoast-snippet-sync.js` | **ours** (`a76190b8`) |
+| `js/admin-media-parent-title.js` | **ours** (`a76190b8`) |
+
+`qwpseo-schema.php` localizes the Schema/JSON-LD graph and the OpenGraph and Twitter card tags,
+seven filters in all. `qwpseo-media-admin.php` carries the adaptation to Yoast's React metabox,
+introduced in Yoast 14, and `js/` is what both of those enqueue; upstream 1.1.1 shipped no `js/`
+directory.
+
+The two upstream PHP files are still diffable, because our changes to them are purely additive:
+the `require_once` of `qwpseo-schema.php` in one, and `qwpseo_enqueue_admin_scripts()` in the
+other. Nothing upstream wrote has been removed or rewritten.
+
+### Three hooks that Yoast no longer fires
+
+Counting `apply_filters()` and `do_action()` definitions in the installed Yoast SEO tree,
+measured on 24.3 and re-checked on 28.8 — every count below is identical in both, so a Yoast
+upgrade is not what killed them. `wpseo_meta` has **zero** (registered at `qwpseo-admin.php:59`, and listed again under
+`front-config` in `i18n-config.json`), `wpseo_xmlsitemaps_config` has **zero** (registered at
+`qwpseo-admin.php:165`, which makes the `qwpseo_xmlsitemaps_config()` function above it
+unreachable), and `wpseo_metakeywords` has **zero** (every reference to it already sits inside a
+commented-out block). For contrast, `wpseo_use_page_analysis` has three definitions and
+`wpseo_title`, `wpseo_metadesc` and `wpseo_replacements` have one each.
+
+**This is pre-existing dead code, not a regression of the bundling**, and it is left exactly as
+it was. It is recorded because the next Yoast upgrade will put somebody in front of those three
+filters, and they will reasonably conclude the upgrade broke them. It did not. They have been
+dead for years — the same story as the paragraph above: upstream was written against a Yoast
+that no longer exists.
+
+### Asset URLs need no adaptation
+
+Unlike the ACF module, no base path constant has to be defined here. Both `wp_enqueue_script()`
+calls build their URL with `plugins_url( 'js/...', __FILE__ )`, where `__FILE__` is the
+enqueueing file itself, and `js/` travels next to those files. The URLs resolve to
+`plugins/qtranslate-x/seo/js/...` on their own.
+
+### The guard is a function, not a class
+
+`slug/` and `acf/` guard on `class_exists()` because their companions declare a class. This one
+declares none: it is functions in the global namespace from top to bottom. So the guard, both at
+the call site in `qtranslate.php` and in the loader, tests
+`function_exists( 'qwpseo_init_language' )`. Loading it twice would be a fatal function
+redeclaration, for the same reason it would be a fatal class redeclaration there: `require_once`
+does not deduplicate the same code reached through two different absolute paths.
+
+**And here the guard only protects in one direction.** `acf-qtranslate` carries an early return
+of its own, so that pair is safe whichever side loads first. `wp-seo-qtranslate-x` carries
+nothing: it defines its functions unconditionally. WordPress appends newly activated plugins to
+the end of `active_plugins`, so the standalone may load before or after this file. If it loads
+first, this module stands down and nothing changes. If it loads second, it redeclares and the
+request dies. There is no fixing that from this side, because by then our functions already
+exist and the standalone has no check to fail.
+
+**Operational conclusion: the standalone `wp-seo-qtranslate-x` plugin must stay deactivated.**
+The guard is a safety net for the one ordering where it helps, not a license to run both.
+
+### Still open: the `qtranslate_config_files` option
+
+The Yoast fields (`yoast_wpseo_title`, `yoast_wpseo_metadesc`, `wpseosnippet_title`, the
+`edit-tags.php` ones) and the front-end filters (`wpseo_title`, `wpseo_meta`, `wpseo_metadesc`,
+`wpseo_replacements`) are registered by no module code at all: they are registered by
+`i18n-config.json`. And that file is not loaded from `seo/`. It is loaded through the path
+`plugins/wp-seo-qtranslate-x/i18n-config.json` stored in the `qtranslate_config_files` option
+and resolved against `WP_CONTENT_DIR`.
+
+**Nothing changes today.** The merged result of every configuration file lives in the
+`qtranslate_admin_config` and `qtranslate_front_config` options, and that is what is read at
+runtime, not the disk. Moving the file leaves the entry pointing at nothing, but the options
+already computed stay intact.
+
+**It is a landmine, though.** The next time anything rebuilds the configuration (the "Save
+Changes" button on the qTranslate settings page, or activating or deactivating a plugin that
+ships its own `i18n-config.json`), `qtranxf_load_config_files()` will not find the file, will log
+a "Could not find file ... listed in option ..." notice and will drop the entry. At that point
+the Yoast fields stop being multilingual.
+
+Where that configuration should live inside the bundle is still to be decided. The two coherent
+options are merging it into the fork's own `i18n-config.json`, which is always loaded as
+`./i18n-config.json`, or placing it at `i18n-config/plugins/wordpress-seo/i18n-config.json`,
+the mechanism upstream designed for exactly this. Neither is a mechanical move and both require
+re-saving the configuration once, so both are deliberately left out of this release.
+
 ## 5.0.0
 
 Los campos `wysiwyg` nativos de ACF pasan a ser multiidioma. Hasta ahora el módulo `acf/` solo
@@ -140,14 +393,30 @@ de versión era un no-op y el cache-busting no habría tenido efecto alguno. Por
 fork únicamente en las URLs de este plugin. El `common.min.js` del núcleo se vuelca en línea en el
 pie de página, salvo con `SCRIPT_DEBUG`, así que no depende de la caché del navegador.
 
-### Duplicado `plugins/acf-qtranslate/` retirado
+### `plugins/acf-qtranslate/` se conserva desactivado
 
-El plugin autónomo `acf-qtranslate` y el módulo `qtranslate-x/acf/` definen ambos la clase
-`acf_qtranslate_plugin`. Eran idénticos byte a byte hasta este arreglo, que solo toca la copia
-vendida, así que han divergido. Medido: el autónomo está inactivo y el vendido activo. Ambos
-cargadores se protegen con `class_exists`, de modo que no hay fatal, pero el riesgo es silencioso:
-si se reactivara el autónomo y cargara primero, ganaría la copia antigua, **sin el arreglo**, y el
-módulo se apartaría sin avisar. Se retiran sus 29 ficheros del repositorio.
+El plugin autónomo `acf-qtranslate` 1.7.25 y el módulo `qtranslate-x/acf/` definen ambos la clase
+`acf_qtranslate_plugin`. Eran idénticos byte a byte hasta los arreglos de esta versión, que solo
+tocan la copia vendida, así que han divergido. El autónomo queda **en disco y desactivado**, que es
+la convención de este repositorio: `qtranslate-slug` convive igual al lado del módulo `slug/`, y
+`wp-seo-qtranslate-x` al lado de `seo/`. Conservarlo es lo que permite volver atrás sin tocar git,
+desactivando el módulo y reactivando el plugin.
+
+No hay riesgo de error fatal: la guarda es doble. El call site de `qtranslate.php` comprueba
+`class_exists( 'acf_qtranslate_plugin' )` antes de cargar el módulo, y `acf-qtranslate.php` hace un
+early return con la misma comprobación, así que cargue primero cualquiera de los dos, el otro se
+aparta.
+
+Lo que sí hay que tener presente, y es la razón de este párrafo: si alguien **reactivara** el
+autónomo y cargara primero, ganaría la copia antigua, **sin los arreglos de esta versión** (el
+`validate_value()` por idioma de `qtranslate_url` y el `merge_front_end_value()` de los formularios
+del front), y el módulo se apartaría sin avisar en ningún log. El plugin tiene que quedarse
+desactivado. Se desactiva, no se borra.
+
+Una versión anterior de esta sección describía haber retirado sus 29 ficheros del repositorio. Fue
+un error y está revertido: borrar el plugin eliminaba la marcha atrás y rompía la convención, y
+además el criterio no se aplicó de forma consistente, porque `qtranslate-slug` también ha divergido
+de su módulo y sí se conservó.
 
 ### `qtranslate_url` ya se puede guardar
 
@@ -496,11 +765,10 @@ un solo plugin pasa a ser dueño de toda la capa multiidioma.
 
 ### Qué se añade
 
-- `acf/` con `src/`, `assets/` y `compatibility/` del acompañante, copiados **sin modificar**
+- `acf/` con `src/`, `assets/` y `compatibility/` del acompañante, copiados **byte a byte**
   desde la versión 1.7.25 de funkjedi (GPLv2 o posterior) para que se puedan seguir
   comparando con el original. Toda la adaptación vive en el cargador, no en el código
-  copiado. Este repositorio normaliza los finales de línea a LF vía `.gitattributes`, igual
-  que hizo con `slug/`, así que la comparación con el original es byte a byte salvo en eso.
+  copiado.
 - `acf/loader.php`, que sustituye a su arranque. Conserva las constantes
   `ACF_QTRANSLATE_PLUGIN` y `ACF_QTRANSLATE_PLUGIN_DIR`, de las que dependen tanto los
   `require_once` internos como las URLs de assets vía `plugins_url()`, y que ahora apuntan a
