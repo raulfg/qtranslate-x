@@ -2,8 +2,8 @@
 /**
 Plugin Name: qTranslate-X (fork)
 Plugin URI: https://github.com/raulfg/qtranslate-x
-Description: Adds user-friendly and database-friendly multilingual content support & Define a slug for each language & Multilingual fields for ACF.
-Version: 5.0.0
+Description: Adds user-friendly and database-friendly multilingual content support & Define a slug for each language & Multilingual fields for ACF & Multilingual metadata for Yoast SEO.
+Version: 5.2.0
 Author: Raul Fernandez
 Author URI: https://github.com/raulfg
 Tags: multilingual, multi, language, admin, tinymce, Polyglot, bilingual, widget, switcher, professional, human, translation, service, qTranslate, zTranslate, mqTranslate, qTranslate Plus, WPML
@@ -173,6 +173,27 @@ if ( ! class_exists( 'QtranslateSlug' ) && file_exists( QTRANSLATE_DIR . '/slug/
  */
 if ( ! class_exists( 'acf_qtranslate_plugin' ) && file_exists( QTRANSLATE_DIR . '/acf/loader.php' ) ) {
 	require_once QTRANSLATE_DIR . '/acf/loader.php';
+}
+
+/*
+ * Bundled Yoast SEO qTranslate companion.
+ *
+ * The guard is a function and not a class, unlike the two above: wp-seo-qtranslate-x
+ * declares no class at all, only functions in the global namespace, so
+ * function_exists() on its entry point is the only thing there is to test. Loading it
+ * twice would be a fatal function redeclaration, for the same reason a class would be:
+ * require_once does not deduplicate the same code reached through two different
+ * absolute paths.
+ *
+ * Unlike acf-qtranslate, the standalone plugin has no guard of its own, so this one
+ * only protects the ordering where the standalone loads first. The standalone must
+ * therefore stay deactivated; see seo/loader.php for the full reasoning and for what
+ * the bundled bootstrap keeps and drops.
+ *
+ * @since 5.1.0
+ */
+if ( ! function_exists( 'qwpseo_init_language' ) && file_exists( QTRANSLATE_DIR . '/seo/loader.php' ) ) {
+	require_once QTRANSLATE_DIR . '/seo/loader.php';
 }
 
 // load qTranslate Services if available // disabled since 3.1
