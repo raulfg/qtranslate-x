@@ -163,6 +163,40 @@ Los otros seis tipos `qtranslate_*` no necesitaban nada: `text` y `textarea` her
 que se guardan con `is_scalar()`, `post_object` y `wysiwyg` no validan valor, e `image` y `file`
 se comprobaron guardando con ellos presentes.
 
+### El selector de idioma deja de perderse en pantallas largas
+
+Una ficha de programa mide unas 45.000 pixeles de alto y reparte 38 metaboxes. Las barras de
+idioma quedan a 95, 2.661 y 45.601 pixeles, de modo que entre la segunda y la ultima hay casi
+43.000 pixeles —el 94% de la pantalla— sin un solo selector a la vista. Cambiar de idioma
+obligaba a subir, pulsar y volver a buscar donde se estaba trabajando.
+
+La primera barra se fija ahora bajo la barra de administracion en cuanto el scroll la alcanza, con
+10 pixeles de separacion para que no se lea como parte de ella. Mientras estas arriba no se fija:
+el titulo de la pantalla y el boton de anadir quedan libres. Las otras dos barras no se tocan.
+
+No puede resolverse con `position: sticky`. La barra vive en `#post-body-content`, cuya caja
+termina a los 2.721 pixeles, y un elemento pegajoso se suelta al final de su bloque contenedor:
+justo donde empieza el problema. Se fija con `position: fixed`.
+
+El cambio lo dispara un `IntersectionObserver` sobre un centinela colocado en el sitio de la
+barra, nunca un manejador de scroll. Escribir estilos en cada evento de scroll fuerza recalculos
+de maquetacion en una pantalla con decenas de metaboxes y editores TinyMCE; ese trabajo colapsa la
+altura de la pagina, el navegador recorta el desplazamiento y el editor acaba de vuelta arriba.
+Medido: con el manejador de scroll la pagina saltaba al principio; con el observador el
+desplazamiento se mantiene sin deriva.
+
+Tres detalles que el navegador obliga a tratar. El ancho y la posicion se toman del separador que
+guarda el hueco de la barra, no del area de contenido completa, porque esta incluye la columna de
+widgets y la barra se montaria encima de ella. El selector necesita el nombre de etiqueta
+(`ul.qtranxs-lang-switch-wrap.qtranxs-lsb-pinned`): la regla propia de la barra tiene mas
+especificidad que una clase suelta y conservaria su margen superior de 20 pixeles. Y el
+desplazamiento vertical se mide en vez de fijarse por punto de ruptura: por debajo de 783 pixeles
+WordPress pasa la barra de administracion a `position: absolute`, de modo que se va con el scroll;
+reservarle sitio dejaria una franja vacia por la que asoma el contenido. Se consulta su posicion
+calculada, y el hueco queda en 42 pixeles en escritorio y 10 en la disposicion estrecha.
+
+Se carga solo en `post.php` y `post-new.php`. El resto del administrador no lo necesita.
+
 ### Huecos conocidos
 
 - **"Text Only" y "Delay initialization".** Un `wysiwyg` con `tabs => 'text'` o `delay => 1` no

@@ -1,0 +1,36 @@
+/**
+ * Pinned state for the first Language Switcher Bar on edit screens.
+ *
+ * The offset below the admin bar is a gap, not a flush fit: pressed against
+ * the admin bar the switcher reads as part of it. Left and width are set from
+ * JavaScript, since a fixed element no longer follows the content column.
+ */
+
+/*
+ * The element selector is needed, not decoration: the bar's own rule is
+ * ul.qtranxs-lang-switch-wrap, which outranks a lone class and would keep its
+ * 20px top margin, pushing the pinned bar below where it is placed.
+ *
+ * top, left and width are set from JavaScript. The offset depends on whether
+ * the admin bar is fixed, which WordPress decides by viewport width, and the
+ * horizontal box has to follow the content column rather than the full width.
+ */
+ul.qtranxs-lang-switch-wrap.qtranxs-lsb-pinned {
+	position: fixed;
+	top: 10px; /* replaced on pin; only used if the script cannot measure */
+	z-index: 9999;
+	margin: 0;
+	box-shadow: 0 2px 10px rgba( 0, 0, 0, 0.35 );
+}
+
+/* Holds the bar's place in the flow while it is pinned. */
+.qtranxs-lsb-spacer {
+	height: 0;
+}
+
+/* Marks where the bar belongs; never rendered. */
+.qtranxs-lsb-sentinel {
+	height: 0;
+	margin: 0;
+	padding: 0;
+}

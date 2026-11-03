@@ -603,6 +603,40 @@ function qtranxf_admin_head() {
 }
 add_action('admin_head', 'qtranxf_admin_head');
 
+/**
+ * Keeps the first Language Switcher Bar reachable on long edit screens.
+ *
+ * Only the post editor needs this: a programme page runs to tens of thousands
+ * of pixels with the bar stranded near the top, so switching language costs a
+ * round trip and the editor loses their place. Other admin screens are short
+ * enough that the bar never leaves the viewport.
+ *
+ * @since 4.4.0
+ */
+function qtranxf_enqueue_lsb_pin( $hook ) {
+	if ( $hook !== 'post.php' && $hook !== 'post-new.php' ) {
+		return;
+	}
+
+	$version = qtranxf_fork_version();
+
+	wp_enqueue_style(
+		'qtranslate-lsb-pin',
+		plugins_url( 'css/qtranslate_lsb_pin.css', __FILE__ ),
+		array(),
+		$version
+	);
+
+	wp_enqueue_script(
+		'qtranslate-lsb-pin',
+		plugins_url( 'js/lsb-pin.js', __FILE__ ),
+		array(),
+		$version,
+		true
+	);
+}
+add_action('admin_enqueue_scripts', 'qtranxf_enqueue_lsb_pin');
+
 function qtranxf_admin_footer() {
 	//qtranxf_dbg_log('18.qtranxf_admin_footer:');
 	$enqueue_script = (defined('SCRIPT_DEBUG') && SCRIPT_DEBUG);
