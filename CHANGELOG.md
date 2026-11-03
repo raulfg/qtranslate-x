@@ -11,11 +11,27 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
-## 4.4.0
+## 5.0.0
 
 Los campos `wysiwyg` nativos de ACF pasan a ser multiidioma. Hasta ahora el módulo `acf/` solo
 cubría los tipos `qtranslate_*`; un `wysiwyg` normal guardaba en cada pantalla el contenido del
 idioma activo y descartaba el resto. Compatible con Secure Custom Fields 6.9.7 además de ACF 5.
+
+**Por qué sube de número mayor.** Tres cosas cambian para quien ya tenga el plugin instalado, y
+ninguna se puede deshacer recargando:
+
+1. Un `wysiwyg` nativo pasa a almacenarse como valor multiidioma con marcadores. Lo que antes
+   era una cadena suelta ahora lleva los cuatro idiomas dentro, de modo que cualquier código
+   que leyera ese campo sin pasar por qTranslate ve otra cosa.
+2. El plugin autónomo `acf-qtranslate` se retira. Su módulo vive dentro del fork desde la 4.2.0
+   y mantener los dos a la vez era un duplicado.
+3. Guardar desde un `acf_form()` en el frontend deja de sustituir el valor entero: ahora funde
+   el texto en el idioma de la URL. Es el arreglo de una pérdida de datos, pero es un cambio de
+   comportamiento para quien dependiera del anterior.
+
+`QTX_VERSION` sigue declarando `3.4.6.8` a propósito: es la versión de upstream de la que
+desciende el código y hay comprobaciones de terceros que la leen. El número del fork vive en la
+cabecera del plugin, que es lo que usa `qtranxf_fork_version()` para el cache-busting de assets.
 
 ### El diagnóstico
 
@@ -255,7 +271,7 @@ idioma, los cuatro conservan el texto propio y ninguno pisa a otro.
   explicar, 0 filas ausentes, 0 idiomas perdidos.
 - La guarda de pérdida, en silencio desde la corrección de A: 15 líneas antes y después.
 - Tras el cambio de caché: recarga forzada del admin y guardado de la página de laboratorio con
-  las nuevas URLs `?ver=4.4.0` presentes y el mismo resultado de 9 intactos y 2 benignos.
+  las nuevas URLs `?ver=5.0.0` presentes y el mismo resultado de 9 intactos y 2 benignos.
 
 #### Matriz de contenedores y motores
 

@@ -49,7 +49,7 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
-## Novedades de la 4.4.0
+## Novedades de la 5.0.0
 
 Los campos `wysiwyg` nativos de ACF ya son multiidioma. Hasta ahora el `readme` solo prometía los
 tipos `qtranslate_*`; un `wysiwyg` normal guardaba en cada pantalla el contenido del idioma activo

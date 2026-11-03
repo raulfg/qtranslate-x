@@ -611,7 +611,7 @@ add_action('admin_head', 'qtranxf_admin_head');
  * round trip and the editor loses their place. Other admin screens are short
  * enough that the bar never leaves the viewport.
  *
- * @since 4.4.0
+ * @since 5.0.0
  */
 function qtranxf_enqueue_lsb_pin( $hook ) {
 	if ( $hook !== 'post.php' && $hook !== 'post-new.php' ) {

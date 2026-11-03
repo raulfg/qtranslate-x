@@ -4,14 +4,14 @@ Contributors: johnclause, chineseleper, Vavooon, grafcom
 Tags: multilingual, language, admin, tinymce, bilingual, widget, switcher, i18n, l10n, multilanguage, translation
 Requires at least: 3.9
 Tested up to: 4.5
-Stable tag: 4.4.0
+Stable tag: 5.0.0
 License: GPLv3 or later
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=QEXEK3HX8AR6U
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
 Adds a user-friendly multilingual dynamic content management.
 
-This fork is not recommended for new projects: use qTranslate-XT instead. Native ACF wysiwyg fields are multilingual as of 4.4.0, and the bundled ACF module works with Secure Custom Fields 6.9.7 as well as ACF 5.
+This fork is not recommended for new projects: use qTranslate-XT instead. Native ACF wysiwyg fields are multilingual as of 5.0.0, and the bundled ACF module works with Secure Custom Fields 6.9.7 as well as ACF 5.
 
 ## Description ##
 

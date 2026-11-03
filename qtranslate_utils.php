@@ -85,7 +85,7 @@ function qtranxf_plugin_basename(){
  * against upstream releases, so a URL versioned with it never changes between deploys.
  * Reading the header keeps a single place to bump on each release.
  *
- * @since 4.4.0
+ * @since 5.0.0
  */
 function qtranxf_fork_version(){
 	static $s;
@@ -104,7 +104,7 @@ function qtranxf_fork_version(){
  * passed at enqueue time into a no-op and leaves browsers serving stale JS after a deploy.
  * This runs after such filters and restores the version, for URLs inside this plugin only.
  *
- * @since 4.4.0
+ * @since 5.0.0
  */
 function qtranxf_restore_asset_version($src){
 	if(!is_admin() || strpos($src, 'ver=') !== false) return $src;
