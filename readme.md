@@ -49,6 +49,20 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 5.3.0
+
+La barra de idiomas se queda anclada arriba al hacer scroll **también en las páginas de
+opciones**, no solo en el editor de entradas.
+
+El anclaje llegó en la 5.0.0 dando por hecho que el resto del administrador eran
+pantallas cortas. No lo son: una página de opciones de ACF puede renderizar cientos de
+campos multiidioma a lo largo de más de diez mil píxeles, y ahí la barra se perdía al
+primer scroll justo donde más falta hace.
+
+Las páginas se leen del registro de ACF y su identificador de pantalla lo calcula
+WordPress, de modo que el plugin no conoce el nombre de la página de ningún tema. Las
+pantallas de términos quedan fuera a propósito: llevan barra, pero son cortas.
+
 ## Novedades de la 5.2.0
 
 Los metadatos de Yoast SEO vuelven a ser multiidioma de verdad, y cada idioma sirve **lo suyo o

@@ -604,17 +604,64 @@ function qtranxf_admin_head() {
 add_action('admin_head', 'qtranxf_admin_head');
 
 /**
+ * Lists the admin screens where the pinned Language Switcher Bar is worth loading.
+ *
+ * The post editor was the only screen when this shipped in 5.0.0, on the assumption
+ * that every other admin page was short enough for the bar to stay in view. An ACF
+ * options page breaks that assumption badly: "Opciones Globales" on this install
+ * renders 370 multilingual fields over 13.455 pixels, so the bar is out of reach
+ * after the first scroll on the one screen with the most languages to switch
+ * between.
+ *
+ * The options pages are read from ACF's own registry rather than named here, and
+ * their hook is built with WordPress's `get_plugin_page_hookname()` rather than
+ * assembled by hand, because the prefix differs between a top-level page
+ * (`toplevel_page_…`) and a sub-page (`{parent}_page_…`) and that is core's rule to
+ * state, not ours. Nothing in this function knows the name of a theme's page.
+ *
+ * Term screens are deliberately left out. They do carry a bar, but they are short,
+ * so pinning there would add a fixed element without solving anything.
+ *
+ * @since 5.3.0
+ *
+ * @param string $hook Current admin page hook suffix.
+ * @return bool
+ */
+function qtranxf_screen_wants_lsb_pin( $hook ) {
+	if ( $hook === 'post.php' || $hook === 'post-new.php' ) {
+		return true;
+	}
+
+	if ( ! function_exists( 'acf_get_options_pages' ) || ! function_exists( 'get_plugin_page_hookname' ) ) {
+		return false;
+	}
+
+	foreach ( (array) acf_get_options_pages() as $page ) {
+		if ( empty( $page['menu_slug'] ) ) {
+			continue;
+		}
+		$parent = isset( $page['parent_slug'] ) ? $page['parent_slug'] : '';
+		if ( get_plugin_page_hookname( $page['menu_slug'], $parent ) === $hook ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
  * Keeps the first Language Switcher Bar reachable on long edit screens.
  *
- * Only the post editor needs this: a programme page runs to tens of thousands
- * of pixels with the bar stranded near the top, so switching language costs a
- * round trip and the editor loses their place. Other admin screens are short
- * enough that the bar never leaves the viewport.
+ * Loading the pair on a screen that turns out to have no bar costs nothing: the
+ * script looks for `ul.qtranxs-lang-switch-wrap`, watches for it for ten seconds if
+ * it is not there yet, and disconnects its observer either way. The stylesheet only
+ * describes the pinned state and the two zero-height helpers, so it renders nothing
+ * on its own.
  *
  * @since 5.0.0
  */
 function qtranxf_enqueue_lsb_pin( $hook ) {
-	if ( $hook !== 'post.php' && $hook !== 'post-new.php' ) {
+	if ( ! qtranxf_screen_wants_lsb_pin( $hook ) ) {
 		return;
 	}
 

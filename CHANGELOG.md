@@ -11,6 +11,39 @@ proyectos nuevos**; ver las advertencias en `readme.md`.
 Las versiones a partir de la 4.0.0 son de este fork; todo número inferior pertenece a
 upstream y está documentado en `changelog-qtranslate-x.md`.
 
+## 5.3.0
+
+### El selector de idioma se ancla también en las páginas de opciones
+
+El anclaje de la barra llegó en la 5.0.0 solo para `post.php` y `post-new.php`, con el
+argumento de que las demás pantallas del administrador eran lo bastante cortas para que
+la barra nunca saliera de la vista. Una página de opciones de ACF rompe esa premisa del
+todo: «Opciones Globales» en la instalación de referencia renderiza **370 campos
+multiidioma a lo largo de 13.455 píxeles**, de modo que la barra queda fuera de alcance
+al primer scroll precisamente en la pantalla donde más se cambia de idioma.
+
+Las páginas de opciones se leen del registro de ACF (`acf_get_options_pages()`) en lugar
+de nombrarse en el código, y su hook se construye con `get_plugin_page_hookname()` de
+WordPress en vez de componerlo a mano, porque el prefijo cambia entre una página de
+primer nivel (`toplevel_page_…`) y una subpágina (`{padre}_page_…`), y esa regla es del
+núcleo y no nuestra. Nada en el plugin conoce el nombre de la página de un tema.
+
+No hizo falta tocar el CSS ni el JS. La hoja de estilos solo describe el estado anclado
+y dos auxiliares de altura cero, sin depender de la maquetación del editor de entradas,
+y el script mide su propio espaciador, que está en el flujo allí donde corresponda.
+Cargar el par en una pantalla que resulte no tener barra no cuesta nada: el script la
+busca, la espera diez segundos si aún no existe y desconecta su observador en cualquier
+caso.
+
+Las pantallas de términos se dejan fuera a propósito. Sí llevan barra, pero son cortas,
+así que anclarla ahí añadiría un elemento fijo sin resolver nada.
+
+Una trampa anotada por si alguien repite la comprobación:
+`get_plugin_page_hookname()` devuelve `admin_page_<slug>` bajo WP-CLI, porque consulta
+`get_admin_page_parent()` y los globales `$menu`/`$submenu` que una petición de consola
+nunca llena. En una petición real del administrador devuelve `toplevel_page_<slug>`
+correctamente. Esto se verifica en el navegador, no con `wp eval`.
+
 ## 5.2.0
 
 ### La tabla de indexables de Yoast deja de congelar un idioma
