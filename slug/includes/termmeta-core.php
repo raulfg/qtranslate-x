@@ -204,23 +204,12 @@ endif;
 
 
 
-/**
- * Retrieve values for a custom term field.
- *
- * The parameters must not be considered optional. All of the term meta fields
- * will be retrieved and only the meta field key values returned.
- *
- * @param string $key Meta field key.
- * @param int $term_id Term ID
- * @return array Meta field values.
+/*
+ * `get_term_custom_values()` used to live here: a polyfill from before WordPress 4.4
+ * shipped native term meta. It was removed in 5.2.0. It had no callers anywhere in
+ * wp-content (checked with the PHP tokenizer across 9,943 files, counting calls rather
+ * than mentions), and its signature declared an optional parameter before a required
+ * one, which PHP 8.4 deprecates. qTranslate-XT dropped this whole file and reads term
+ * meta through `get_metadata( 'term', ... )` instead, which is the direction to take
+ * the rest of this file in.
  */
-if ( !function_exists('get_term_custom_values') ):
-	function get_term_custom_values( $key = '', $term_id ) {
-		if ( !$key )
-			return null;
-
-		$custom = get_term_custom($term_id);
-
-		return isset($custom[$key]) ? $custom[$key] : null;
-	}
-endif;

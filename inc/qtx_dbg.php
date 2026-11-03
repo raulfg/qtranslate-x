@@ -51,7 +51,6 @@ if(WP_DEBUG){
 			if($condition)qtranxf_dbg_echo($msg,$var,$bt,$exit);
 		}
 	}
-	assert_options(ASSERT_BAIL,true);
 
 	/*
 	function qtranxf_do_tests(){
