@@ -49,6 +49,55 @@ desviación completa respecto al original.
 La numeración propia arranca en **4.0.0**. Todo número inferior pertenece a upstream y está
 documentado en `changelog-qtranslate-x.md`.
 
+## Novedades de la 5.2.0
+
+Los metadatos de Yoast SEO vuelven a ser multiidioma de verdad, y cada idioma sirve **lo suyo o
+nada** en lugar de heredar el texto de otro.
+
+Yoast guarda en su tabla `yoast_indexable` un título y una descripción ya calculados, una fila por
+objeto, y lee ese caché al renderizar la cabecera. Como indexa también desde el front, un visitante
+que navegaba en español congelaba el español en la fila y los cuatro idiomas pasaban a recibirlo.
+Nada fallaba ni avisaba. Medido antes del arreglo: de 174 filas con metadatos multiidioma, 74
+estaban congeladas en un solo idioma, lo que suponía 292 URLs sirviendo una descripción en el
+idioma equivocado o vacía.
+
+El módulo bloquea ahora la escritura de indexables desde el front y restituye los valores sin
+resolver tras cada guardado en el administrador. **No repara las filas ya escritas**: Yoast lee la
+fila que existe en vez de recalcularla, así que una instalación con daño previo necesita una pasada
+de reparación aparte.
+
+La política de idioma se reparte por campo. Las descripciones se quedan vacías cuando no hay
+traducción, porque una descripción no tiene sustituto correcto en otro idioma. Los títulos
+cascadean, porque un `<title>` vacío sí es un defecto y un título ajeno al menos describe la
+página. Mezclar las dos reglas en un solo filtro dejaba páginas que se contradecían: `<title>` en
+inglés y ningún `og:title`.
+
+Incluye además un parche para el editor clásico. Desde Yoast 27.6 el metabox llama a
+`getPostType()` antes de comprobar si está en el editor de bloques, y si ese selector falta del
+store React desmonta el metabox entero y muestra un panel de error. El parche lo restituye solo
+cuando falta.
+
+## Novedades de la 5.1.0
+
+Integra el plugin acompañante **Integration: Yoast SEO & qTranslate-X** como módulo (`seo/`), igual
+que se hizo con `slug/` en la 4.1.0 y con `acf/` en la 4.2.0.
+
+El motivo de fondo: upstream se detuvo en la 1.1.1 y su `readme.txt` todavía declara `Tested up to:
+4.5` — WordPress 4.5, abril de 2016 — mientras el Yoast al que se pega ha llegado a la 28.8. Cuatro
+de los ficheros de ese directorio ya eran nuestros antes de integrarlo, así que el mantenimiento
+venía ocurriendo de hecho desde hacía años. Integrarlo no lo asume: lo reconoce.
+
+Una trampa que conviene conocer antes de mover nada: `i18n-config.json` **no** vive dentro de
+`seo/`, sino en `i18n-config/plugins/wordpress-seo/`, porque el buscador de configuraciones se
+salta cualquier carpeta cuyo nombre empiece por `qtranslate-x`. Colocarlo en `seo/` no rompería
+nada el mismo día —el resultado queda cacheado en una opción— sino en silencio la siguiente vez que
+algo regenerase esa caché.
+
+A diferencia de `qtranslate-slug` y `acf-qtranslate`, el plugin autónomo **no lleva guarda de
+redeclaración**: declara sus funciones sin comprobar si ya existen. Tenerlo en disco desactivado no
+basta, porque «desactivado» es una fila en una opción que ningún despliegue consulta. Debe retirarse
+de `wp-content/plugins/` y conservarse como zip instalable.
+
 ## Novedades de la 5.0.0
 
 Los campos `wysiwyg` nativos de ACF ya son multiidioma. Hasta ahora el `readme` solo prometía los
@@ -214,6 +263,18 @@ el importador y un esquema de base de datos sin decidir. **No conviene partir de
 - ~~Absorber el plugin acompañante `acf-qtranslate` como módulo~~ — **hecho en la 4.2.0**.
   Copia byte a byte de la 1.7.25 con la puerta de versión corregida para admitir ACF 6. Queda
   pendiente comprobar su interfaz de admin contra una instalación real de ACF Pro 6.
+- ~~Absorber el plugin acompañante `wp-seo-qtranslate-x` como módulo~~ — **hecho en la 5.1.0**.
+  No es copia byte a byte: cuatro de sus ficheros no existen aguas arriba y la 5.2.0 añadió la
+  protección del caché de indexables. A diferencia de los otros dos, el plugin autónomo no lleva
+  guarda de redeclaración, así que no puede quedarse en `wp-content/plugins/` ni desactivado.
+- **Hacer multiidioma los campos SEO de términos.** Hoy no lo son, y nunca lo fueron: el
+  `i18n-config.json` heredado los declara para `edit-tags.php`, pero WordPress edita un término
+  en `term.php` desde la 4.5, y además los `id` de esos campos llevan ahora prefijo
+  (`hidden_wpseo_title`). Arreglarlo pide las dos cosas más una sincronización con React como la
+  que tienen las entradas. `wpseo_taxonomy_meta` está vacía, así que no hay datos en riesgo.
+- **Averiguar por qué `externals-redux.js` no llega al editor en algunas instalaciones.** El
+  parche de `getPostType` de la 5.2.0 tapa el síntoma; la causa sigue sin identificar y apunta a
+  algún plugin de rendimiento o de manejo de assets que descarta o reordena ese script.
 - **Evaluar la migración a qTranslate-XT.** Ya incluye los slugs como módulo integrado y un
   migrador desde los metadatos `_qts_slug_*` del plugin qTranslate Slug. Sigue siendo la
   opción sensata a medio plazo; este fork solo mantiene en pie lo que ya existe.
