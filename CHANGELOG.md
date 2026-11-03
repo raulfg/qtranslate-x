@@ -197,6 +197,31 @@ calculada, y el hueco queda en 42 pixeles en escritorio y 10 en la disposicion e
 
 Se carga solo en `post.php` y `post-new.php`. El resto del administrador no lo necesita.
 
+### Un formulario en el frontend ya no borra los demas idiomas
+
+Un `acf_form()` fuera del administrador no tiene nada de la maquinaria multiidioma: no se
+carga `qTranslateConfig`, no hay barra de idiomas y el campo no lleva enganches. El idioma lo
+pone la URL, el campo se pinta con ese unico idioma y el formulario devuelve esa unica cadena.
+Guardada tal cual, sustituia al valor entero: **editar una pagina por `/es/` descartaba en
+silencio el ingles, el frances y el arabe**. Medido: un campo con cuatro idiomas quedaba
+reducido a texto plano sin marcadores.
+
+Es un defecto anterior a esta version, no una regresion. El fork ya lo detectaba —la guarda
+`log_translation_loss` lo registraba en `debug.log`— pero se limitaba a avisar.
+
+Ahora el texto enviado se **funde** en el hueco del idioma que la URL pide, y los demas quedan
+como estaban. Editar por `/en/` toca el ingles y nada mas, que es lo que promete una URL por
+idioma. El administrador queda deliberadamente fuera: alli el valor llega ya ensamblado desde
+los campos por idioma, y una cadena plana significa de verdad que se han vaciado los otros.
+
+La lectura del valor almacenado se comparte ahora con la guarda, en `read_stored_value()`: pasa
+por la API de metadatos en vez de `$wpdb->get_var()`, que convierte la cadena vacia en NULL y
+ocultaria una fila presente pero vacia, y levanta el filtro `get_*_metadata` de qTranslate-X
+durante esa unica lectura, porque si no devolveria solo el idioma en curso.
+
+Verificado guardando el mismo campo desde `/es/`, `/en/`, `/fr/` y `/ar/`: cada URL escribe su
+idioma, los cuatro conservan el texto propio y ninguno pisa a otro.
+
 ### Huecos conocidos
 
 - **"Text Only" y "Delay initialization".** Un `wysiwyg` con `tabs => 'text'` o `delay => 1` no
@@ -206,12 +231,15 @@ Se carga solo en `post.php` y `post-new.php`. El resto del administrador no lo n
 - **Alcance de la auditoría.** Solo claves de meta sin guion bajo, solo marcadores con corchetes
   (`[:xx]`; los `{:xx}` de 100 filas de Yoast y los `<!--:xx-->` no se compararon), con clave
   `post_id|meta_key`. No se compararon termmeta, usermeta ni commentmeta.
-- **Repeaters paginados, ACF Blocks y `acf_form()` en frontend** no se han probado. Ninguno se usa
-  en este proyecto (0 repeaters con paginación, 0 grupos con ubicación `block`, 0 llamadas a
-  `acf_form()`), y los tres cargan o envían campos por vías que no pasan por el enganche en carga
-  de página, así que activarlos obliga a verificar de nuevo.
-- **`color_picker`** no quedó confirmado: su valor no llegó a guardarse en la prueba, pero por la
-  forma de interactuar con su input oculto, no por el plugin.
+- **ACF Blocks** no se ha probado. No se usa en este proyecto (0 grupos con ubicación `block`) y
+  su guardado va por Gutenberg y REST, una via que no pasa por el enganche en carga de pagina, asi
+  que activarlo obliga a verificar de nuevo.
+- **Repeaters paginados: verificados.** Con paginacion de dos filas y cinco filas guardadas, las
+  filas que llegan por AJAX al cambiar de pagina nacen enganchadas con sus cuatro idiomas, y
+  guardar desde la primera pagina deja intactas las filas de las otras, que ni siquiera estan en
+  el documento en ese momento.
+- **`color_picker`: verificado.** Guarda su valor con normalidad; el fallo de una prueba anterior
+  fue no escribir en su input oculto, no del plugin.
 - **`max_input_vars`.** Medido en la pantalla más pesada (6.606 variables de 30.000, un 22 %) y
   con incremento 0 respecto a antes del arreglo: antes cada editor ya llevaba cinco inputs ocultos
   del enganche del núcleo, ahora los lleva una sola vez. Un truncamiento exigiría miles de filas
