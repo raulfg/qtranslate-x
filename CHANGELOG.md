@@ -285,6 +285,18 @@ tenga, porque un resultado sin etiqueta no se puede elegir de una lista.
 - **Alcance de la auditoría.** Solo claves de meta sin guion bajo, solo marcadores con corchetes
   (`[:xx]`; los `{:xx}` de 100 filas de Yoast y los `<!--:xx-->` no se compararon), con clave
   `post_id|meta_key`. No se compararon termmeta, usermeta ni commentmeta.
+- **Una etiqueta ya pintada no cambia hasta recargar.** La resolucion del titulo ocurre en el
+  servidor, asi que lo que llega al navegador es un solo idioma: los otros tres ya no estan en la
+  pagina y el conmutador no tiene con que sustituirlos. Al pulsar otra bandera, la etiqueta de un
+  `post_object` que ya tiene valor elegido se queda en el idioma anterior hasta la siguiente
+  carga. El dato es correcto en ambos casos; lo que falla es solo el refresco.
+
+  Hacerlo en vivo es posible —el conmutador expone `addLanguageSwitchListener()` y bastaria con
+  mandar los cuatro titulos en un atributo y reescribir la etiqueta— pero obligaria a escribir
+  dentro del select2 de ACF. Esa es la razon de no hacerlo: todo lo demas de esta version se
+  apoya en APIs estables, y eso dependeria de como un componente de terceros pinta su DOM, de
+  modo que el dia que cambie dejaria de refrescarse en silencio, sin error que lo delate.
+
 - **ACF Blocks** no se ha probado. No se usa en este proyecto (0 grupos con ubicación `block`) y
   su guardado va por Gutenberg y REST, una via que no pasa por el enganche en carga de pagina, asi
   que activarlo obliga a verificar de nuevo.
